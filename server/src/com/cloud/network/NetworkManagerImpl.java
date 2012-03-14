@@ -2209,6 +2209,13 @@ public class NetworkManagerImpl implements NetworkManager, NetworkService, Manag
         	InvalidParameterValueException ex = new InvalidParameterValueException("Unable to find network offering by specified id");
         	if (ntwkOff != null) {
         		ex.addProxyObject(ntwkOff, networkOfferingId, "networkOfferingId");        		
+        		// Get the VO object's table name.
+                String tablename = AnnotationHelper.getTableName(ntwkOff);
+                if (tablename != null) {
+                	ex.addProxyObject(tablename, networkOfferingId, "networkOfferingId");
+                } else {
+                	s_logger.info("\nCould not retrieve table name (annotation) from " + tablename + " VO proxy object\n");
+                }
                 throw ex;
         	}
         	throw ex;
@@ -2382,6 +2389,12 @@ public class NetworkManagerImpl implements NetworkManager, NetworkService, Manag
         if (createVlan && !ntwkOff.getSpecifyIpRanges()) {
         	InvalidParameterValueException ex = new InvalidParameterValueException("Network offering with specified id doesn't support adding multiple ip ranges");
         	ex.addProxyObject(ntwkOff, ntwkOff.getId(), "networkOfferingId");
+            String tablename = AnnotationHelper.getTableName(ntwkOff);
+            if (tablename != null) {
+            	ex.addProxyObject(tablename, ntwkOff.getId(), "networkOfferingId");
+            } else {
+            	s_logger.info("\nCould not retrieve table name (annotation) from " + tablename + " VO proxy object\n");
+            }
             throw ex;   
         }
 
