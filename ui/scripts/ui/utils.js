@@ -76,7 +76,7 @@
 	  else if(typeof(value) == null || typeof(value) == "undefined") {		 
 			return '';
 		}
-        
+           
     var sanitized = value
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
