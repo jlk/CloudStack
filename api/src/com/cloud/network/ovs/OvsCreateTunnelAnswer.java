@@ -30,7 +30,7 @@ public class OvsCreateTunnelAnswer extends Answer {
     //for debug info
     String fromIp;
     String toIp;
-    String key;
+    int key;
     String bridge;
     
     public OvsCreateTunnelAnswer(Command cmd, boolean success, String details, String bridge) {
@@ -76,7 +76,7 @@ public class OvsCreateTunnelAnswer extends Answer {
         return toIp;
     }
     
-    public String getKey() {
+    public int getKey() {
         return key;
     }
     
