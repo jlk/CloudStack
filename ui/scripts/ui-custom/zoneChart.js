@@ -279,39 +279,32 @@
           response: {
             success: function(args) {
               var data = args.data;
-              if (data.length > 1) {
-                // Render list view first
-                $chart.listView({
-                  listView: $.extend(true, {}, cloudStack.sections.system.naas.networks.listView, {
-                    dataProvider: function(args) {
-                      args.response.success({ data: data });
-                    },
-                    detailView: {
-                      tabs: {
-                        network: {
-                          title: 'Network',
-                          custom: function(args) {
-                            var $chart = $('<div>').addClass('system-chart network');
 
-                            renderChart({
-                              $chart: $chart,
-                              data: args.context.physicalNetworks[0]
-                            });
+              $chart.listView({
+                listView: $.extend(true, {}, cloudStack.sections.system.naas.networks.listView, {
+                  dataProvider: function(args) {
+                    args.response.success({ data: data });
+                  },
+                  detailView: {
+                    tabs: {
+                      network: {
+                        title: 'Network',
+                        custom: function(args) {
+                          var $chart = $('<div>').addClass('system-chart network');
 
-                            return $chart;
-                          }
+                          renderChart({
+                            $chart: $chart,
+                            data: args.context.physicalNetworks[0]
+                          });
+
+                          return $chart;
                         }
                       }
                     }
-                  })
-                });
-                $loading.remove();
-              } else {
-                renderChart({
-                  $chart: $chart,
-                  data: data[0]
-                });
-              }
+                  }
+                })
+              });
+              $loading.remove();
             }
           }
         });
@@ -335,8 +328,8 @@
           3: { name: _l('label.primary.allocated') },
           6: { name: _l('label.secondary.storage') },
           9: { name: _l('label.local.storage') },
-          4: { name: _l('label.public.ip') },
-          5: { name: _l('label.private.ip') },
+          4: { name: _l('label.public.ips') },
+          5: { name: _l('label.management.ips') },
           8: { name: _l('label.direct.ips') },
           7: { name: 'VLAN' }
         };

@@ -23,9 +23,17 @@
           },
           label: 'state.Destroyed'
         }
-      },
+      },			
+			preFilter: function(args) {
+				var hiddenFields = [];
+				if(!isAdmin()) {				
+					hiddenFields.push('instancename');
+				}			
+				return hiddenFields;
+			},			
       fields: {        
         displayname: { label: 'label.display.name' },
+				instancename: { label: 'label.internal.name' },
         zonename: { label: 'label.zone.name' },
         state: {
           label: 'label.state',
@@ -113,7 +121,7 @@
 
 									
 									$.ajax({
-                    url: createURL("listIsos&isofilter=featured&zoneid="+args.currentData.zoneid),
+                    url: createURL("listIsos&isofilter=featured&zoneid=" + args.currentData.zoneid + "&bootable=true"),
                     dataType: "json",
                     async: false,
                     success: function(json) {
@@ -121,7 +129,7 @@
                     }
                   });
                   $.ajax({
-                    url: createURL("listIsos&isofilter=community&zoneid="+args.currentData.zoneid),
+                    url: createURL("listIsos&isofilter=community&zoneid=" + args.currentData.zoneid + "&bootable=true"),
                     dataType: "json",
                     async: false,
                     success: function(json) {
@@ -129,24 +137,14 @@
                     }
                   });
                   $.ajax({
-                    url: createURL("listIsos&isofilter=selfexecutable&zoneid="+args.currentData.zoneid),
+                    url: createURL("listIsos&isofilter=selfexecutable&zoneid=" + args.currentData.zoneid + "&bootable=true"),
                     dataType: "json",
                     async: false,
                     success: function(json) {
                       myIsoObjs = json.listisosresponse.iso;
                     }
                   });		
-									/*
-                  $.ajax({
-                    url: createURL("listIsos&isReady=true&bootable=true&isofilter=executable&zoneid="+args.currentData.zoneid),
-                    dataType: "json",
-                    async: false,
-                    success: function(json) {
-                      isoObjs = json.listisosresponse.iso;
-                    }
-                  });
-                  */
-									
+																		
                   args.response.success({
                     hypervisor: {
                       idField: 'name',
@@ -1495,14 +1493,19 @@
               if (!args.context.instances[0].publicip) {
                 hiddenFields.push('publicip');
               }
-              
+              												
+							if(!isAdmin()) {				
+								hiddenFields.push('instancename');
+							}			
+														
               return hiddenFields;
             },
 
             fields: [
               {                       
                 id: { label: 'label.id', isEditable: false },
-                displayname: { label: 'label.display.name', isEditable: true },								   
+                displayname: { label: 'label.display.name', isEditable: true },		
+                instancename: { label: 'label.internal.name' },								
                 state: { label: 'label.state', isEditable: false },
                 publicip: { label: 'label.public.ip', isEditable: false },
                 zonename: { label: 'label.zone.name', isEditable: false },
@@ -1632,7 +1635,7 @@
               var jsonObj = args.context.instances[0];
               args.response.success({
                 data: {
-                  totalCPU: fromdb(jsonObj.cpunumber) + " x " + cloudStack.converters.convertHz(jsonObj.cpuspeed),
+                  totalCPU: jsonObj.cpunumber + " x " + cloudStack.converters.convertHz(jsonObj.cpuspeed),
                   cpuused: jsonObj.cpuused,
                   networkkbsread: (jsonObj.networkkbsread == null || jsonObj.networkkbsread == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.networkkbsread * 1024),
                   networkkbswrite: (jsonObj.networkkbswrite == null || jsonObj.networkkbswrite == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.networkkbswrite * 1024)

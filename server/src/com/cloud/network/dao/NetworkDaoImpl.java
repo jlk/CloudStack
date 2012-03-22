@@ -24,6 +24,7 @@ import java.util.Random;
 import javax.ejb.Local;
 import javax.persistence.TableGenerator;
 
+import com.cloud.acl.ControlledEntity.ACLType;
 import com.cloud.network.Network;
 import com.cloud.network.Network.Provider;
 import com.cloud.network.Network.Service;
@@ -35,6 +36,8 @@ import com.cloud.network.NetworkVO;
 import com.cloud.network.Networks.BroadcastDomainType;
 import com.cloud.network.Networks.Mode;
 import com.cloud.network.Networks.TrafficType;
+import com.cloud.offerings.NetworkOfferingVO;
+import com.cloud.offerings.dao.NetworkOfferingDaoImpl;
 import com.cloud.utils.component.ComponentLocator;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.db.GenericDaoBase;
@@ -61,13 +64,16 @@ public class NetworkDaoImpl extends GenericDaoBase<NetworkVO, Long> implements N
     final GenericSearchBuilder<NetworkVO, Long> CountByOfferingId;
     final SearchBuilder<NetworkVO> PhysicalNetworkSearch;
     final SearchBuilder<NetworkVO> SecurityGroupSearch;
+    final GenericSearchBuilder<NetworkVO, Long> NetworksRegularUserCanCreateSearch;
     private final GenericSearchBuilder<NetworkVO, Integer> NetworksCount;
+    final SearchBuilder<NetworkVO> SourceNATSearch;
 
 
     NetworkAccountDaoImpl _accountsDao = ComponentLocator.inject(NetworkAccountDaoImpl.class);
     NetworkDomainDaoImpl _domainsDao = ComponentLocator.inject(NetworkDomainDaoImpl.class);
     NetworkOpDaoImpl _opDao = ComponentLocator.inject(NetworkOpDaoImpl.class);
     NetworkServiceMapDaoImpl _ntwkSvcMap = ComponentLocator.inject(NetworkServiceMapDaoImpl.class);
+    NetworkOfferingDaoImpl _ntwkOffDao = ComponentLocator.inject(NetworkOfferingDaoImpl.class);
 
 
     final TableGenerator _tgMacAddress;
@@ -145,8 +151,29 @@ public class NetworkDaoImpl extends GenericDaoBase<NetworkVO, Long> implements N
         NetworksCount.select(null, Func.COUNT, NetworksCount.entity().getId());
         NetworksCount.and("networkOfferingId", NetworksCount.entity().getNetworkOfferingId(), SearchCriteria.Op.EQ);
         NetworksCount.done();
+        
+        NetworksRegularUserCanCreateSearch = createSearchBuilder(Long.class);
+        NetworksRegularUserCanCreateSearch.and("aclType", NetworksRegularUserCanCreateSearch.entity().getAclType(), Op.EQ);
+        NetworksRegularUserCanCreateSearch.select(null, Func.COUNT, NetworksRegularUserCanCreateSearch.entity().getId());
+        SearchBuilder<NetworkAccountVO> join4 = _accountsDao.createSearchBuilder();
+        join4.and("account", join4.entity().getAccountId(), Op.EQ);
+        join4.and("isOwner", join4.entity().isOwner(), Op.EQ);
+        NetworksRegularUserCanCreateSearch.join("accounts", join4, NetworksRegularUserCanCreateSearch.entity().getId(), join4.entity().getNetworkId(), JoinBuilder.JoinType.INNER);
+        SearchBuilder<NetworkOfferingVO> join5 = _ntwkOffDao.createSearchBuilder();
+        join5.and("specifyVlan", join5.entity().getSpecifyVlan(), Op.EQ);
+        NetworksRegularUserCanCreateSearch.join("ntwkOff", join5, NetworksRegularUserCanCreateSearch.entity().getNetworkOfferingId(), join5.entity().getId(), JoinBuilder.JoinType.INNER);    
+        NetworksRegularUserCanCreateSearch.done();
 
         _tgMacAddress = _tgs.get("macAddress");
+        
+        SourceNATSearch = createSearchBuilder();
+        SourceNATSearch.and("account", SourceNATSearch.entity().getAccountId(), Op.EQ);
+        SourceNATSearch.and("datacenter", SourceNATSearch.entity().getDataCenterId(), Op.EQ);
+        SourceNATSearch.and("guestType", SourceNATSearch.entity().getGuestType(), Op.EQ);
+        SearchBuilder<NetworkServiceMapVO> join6 = _ntwkSvcMap.createSearchBuilder();
+        join6.and("service", join6.entity().getService(), Op.EQ);
+        SourceNATSearch.join("services", join6, SourceNATSearch.entity().getId(), join6.entity().getNetworkId(), JoinBuilder.JoinType.INNER);
+        SourceNATSearch.done();
 
     }
 
@@ -415,6 +442,26 @@ public class NetworkDaoImpl extends GenericDaoBase<NetworkVO, Long> implements N
         sc.setParameters("networkOfferingId", networkOfferingId);
         List<Integer> count = customSearch(sc, null);
         return count.get(0);
+    }
+    
+    @Override
+    public long countNetworksUserCanCreate(long ownerId) {
+        SearchCriteria<Long> sc = NetworksRegularUserCanCreateSearch.create();
+        sc.setParameters("aclType", ACLType.Account);
+        sc.setJoinParameters("accounts", "account", ownerId);
+        sc.setJoinParameters("ntwkOff", "specifyVlan", false);
+        return customSearch(sc, null).get(0);
+    }
+    
+    
+    @Override
+    public List<NetworkVO> listSourceNATEnabledNetworks(long accountId, long dataCenterId, Network.GuestType type) {
+        SearchCriteria<NetworkVO> sc = SourceNATSearch.create();
+        sc.setParameters("datacenter", dataCenterId);
+        sc.setParameters("account", accountId);
+        sc.setParameters("guestType", type);
+        sc.setJoinParameters("services", "service", Service.SourceNat.getName());
+        return listBy(sc);
     }
 
 }

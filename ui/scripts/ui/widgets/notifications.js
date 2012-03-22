@@ -93,7 +93,7 @@
           incomplete: function(args) {},
           error: function(args) {
             if (args.message) {
-              cloudStack.dialog.notice({ message: args.message });
+              cloudStack.dialog.notice({ message: _s(args.message) });
             }
 
             clearInterval(pollTimer);
@@ -264,7 +264,7 @@
         cloudStack.ui.event.call('addNotification', {
           section: notification.section,
           desc: notification.desc,
-          interval: 5000,
+          interval: cloudStack.debug ? 0 : 5000,
           _custom: notification._custom,
           poll: function(args) {
             var complete = args.complete;

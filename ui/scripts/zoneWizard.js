@@ -3,10 +3,81 @@
   var selectedNetworkOfferingHavingSG = false;
   var selectedNetworkOfferingHavingEIP = false;
   var selectedNetworkOfferingHavingELB = false;
+	var selectedNetworkOfferingHavingNetscaler = false;
   var returnedPublicVlanIpRanges = []; //public VlanIpRanges returned by API
   var configurationUseLocalStorage = false;
-	
+
+  // Makes URL string for traffic label
+  var trafficLabelParam = function(trafficTypeID, data, physicalNetworkID) {
+    var zoneType = data.zone.networkType;
+    var hypervisor = data.zone.hypervisor;
+    physicalNetworkID = zoneType == 'Advanced' ? physicalNetworkID : 0;
+    var physicalNetwork = data.physicalNetworks ? data.physicalNetworks[physicalNetworkID] : null;
+    var trafficConfig = physicalNetwork ? physicalNetwork.trafficTypeConfiguration[trafficTypeID] : null;
+    var trafficLabel = trafficConfig ? trafficConfig.label : null;
+    var hypervisorAttr, trafficLabelStr;
+
+    switch(hypervisor) {
+      case 'XenServer':
+        hypervisorAttr = 'xennetworklabel';
+        break;
+      case 'KVM':
+        hypervisorAttr = 'kvmnetworklabel';
+        break;
+      case 'VMWare':
+        hypervisorAttr = 'vmwarenetworklabel';
+        break;
+      case 'BareMetal':
+        hypervisorAttr = 'baremetalnetworklabel';
+        break;
+      case 'Ovm':
+        hypervisorAttr = 'ovmnetworklabel';
+        break;
+    }
+
+    trafficLabelStr = trafficLabel ? '&' + hypervisorAttr + '=' + trafficLabel : '';
+
+    return trafficLabelStr;
+  };
+
   cloudStack.zoneWizard = {
+    // Return required traffic types, for configure physical network screen
+    requiredTrafficTypes: function(args) {
+      if (args.data.zone.networkType == 'Basic' && (selectedNetworkOfferingHavingEIP ||
+                                                    selectedNetworkOfferingHavingELB)) {
+        return [
+          'management',
+          'guest'
+        ];
+      } else {
+        return [
+          'management',
+          'guest',
+          'public'
+        ];
+      }
+    },
+
+    disabledTrafficTypes: function(args) {
+      if (args.data.zone.networkType == 'Basic' && (selectedNetworkOfferingHavingEIP ||
+                                                    selectedNetworkOfferingHavingELB)) {
+        return [
+          'public'
+        ];
+      } else {
+        return [];
+      }
+
+    },
+
+    cloneTrafficTypes: function(args) {
+      if (args.data.zone.networkType == 'Advanced') {
+        return ['guest'];
+      } else {
+        return [];
+      }
+    },
+
     customUI: {
       publicTrafficIPRange: function(args) {
         var multiEditData = [];
@@ -100,46 +171,43 @@
     },
 
     preFilters: {
+		  addNetscalerDevice: function(args) { //add Netscaler
+        var isShown;        
+				if(selectedNetworkOfferingHavingNetscaler == true) {
+          isShown = true;
+          $('.conditional.netscaler').show();
+        } else {
+          isShown= false;
+          $('.conditional.netscaler').hide();
+        }
+        return isShown;
+      },
+		
       addPublicNetwork: function(args) {		
         var isShown;
 				var $publicTrafficDesc = $('.zone-wizard:visible').find('#add_zone_public_traffic_desc');	 
         if(args.data['network-model'] == 'Basic') {
           if(selectedNetworkOfferingHavingSG == true && selectedNetworkOfferingHavingEIP == true && selectedNetworkOfferingHavingELB == true) {
-            $('.conditional.elb').show();
             isShown = true;
           }
-          else {
-            $('.conditional.elb').hide();
+          else {            
             isShown = false;
           }			
 					
 					$publicTrafficDesc.find('#for_basic_zone').css('display', 'inline');
 					$publicTrafficDesc.find('#for_advanced_zone').hide();					
         }
-        else { //args.data['network-model'] == 'Advanced'
-          $('.conditional.elb').hide();
+        else { //args.data['network-model'] == 'Advanced'          
           isShown = true;					
 					
 					$publicTrafficDesc.find('#for_advanced_zone').css('display', 'inline');
 					$publicTrafficDesc.find('#for_basic_zone').hide();					
         }
         return isShown;
-      },
-
-      addNetscalerDevice: function(args) { //add Netscaler
-        var isShown;
-        if(args.data['network-model'] == 'Basic' && (selectedNetworkOfferingHavingSG == true && selectedNetworkOfferingHavingEIP == true && selectedNetworkOfferingHavingELB == true)) {
-          isShown = true;
-          $('.conditional.elb').show();
-        } else {
-          isShown= false;
-          $('.conditional.elb').hide();
-        }
-        return isShown;
-      },
+      },   
 
       setupPhysicalNetwork: function(args) {
-        return args.data['network-model'] == 'Advanced';
+        return true; // Both basic & advanced zones show physical network UI
       },
 
       configureGuestTraffic: function(args) {
@@ -150,10 +218,9 @@
       },
 
       configureStorageTraffic: function(args) {
-        return args.data['network-model'] == 'Advanced' &&
-          $.grep(args.groupedData.physicalNetworks, function(network) {
-            return $.inArray('storage', network.trafficTypes) > -1;
-          }).length;
+        return $.grep(args.groupedData.physicalNetworks, function(network) {
+          return $.inArray('storage', network.trafficTypes) > -1;
+        }).length;
       },
 
       addHost: function(args) {
@@ -229,6 +296,29 @@
             label: 'label.internal.dns.2',
             desc: 'message.tooltip.internal.dns.2'
           },
+          hypervisor: {
+            label: 'label.hypervisor',
+            validation: { required: true },
+            select: function(args) {
+              $.ajax({
+                url: createURL('listHypervisors'),
+                data: { listAll: true },
+                success: function(json) {
+                  args.response.success({
+                    data: $.map(
+                      json.listhypervisorsresponse.hypervisor,
+                      function(hypervisor) {
+                        return {
+                          id: hypervisor.name,
+                          description: hypervisor.name
+                        };
+                      }
+                    )
+                  });
+                }
+              });
+            }
+          },
           networkOfferingId: {
             label: 'label.network.offering',
             select: function(args) {
@@ -253,7 +343,8 @@
                 selectedNetworkOfferingHavingSG = false;
                 selectedNetworkOfferingHavingEIP = false;
                 selectedNetworkOfferingHavingELB = false;
-
+                selectedNetworkOfferingHavingNetscaler = false;
+								
                 var selectedNetworkOfferingId = $(this).val();
 
                 $(networkOfferingObjs).each(function(){
@@ -265,6 +356,14 @@
 
                 $(selectedNetworkOfferingObj.service).each(function(){
                   var thisService = this;
+																	
+									$(thisService.provider).each(function(){										
+										if(this.name == "Netscaler") {
+											selectedNetworkOfferingHavingNetscaler = true;
+											return false; //break each loop
+										}
+									});			
+									
                   if(thisService.name == "SecurityGroup") {
                     selectedNetworkOfferingHavingSG = true;
                   }
@@ -466,6 +565,9 @@
           hypervisor: {
             label: 'label.hypervisor',
             select: function(args) {
+              // Disable select -- selection is made on zone setup step
+              args.$select.attr('disabled', 'disabled');
+
               $.ajax({
                 url: createURL("listHypervisors"),
                 dataType: "json",
@@ -477,6 +579,8 @@
                     items.push({id: this.name, description: this.name})
                   });
                   args.response.success({data: items});
+                  args.$select.val(args.context.zones[0].hypervisor);
+                  args.$select.change();
                 }
               });
 
@@ -703,11 +807,14 @@
             validation: { required: true }, 
 						select: function(args) {
               var selectedClusterObj = {
-                hypervisortype: args.context.zones[0].hypervisor
+                hypervisortype: $.isArray(args.context.zones[0].hypervisor) ?
+                  // We want the cluster's hypervisor type
+                  args.context.zones[0].hypervisor[1] : args.context.zones[0].hypervisor
               };
 
-              if(selectedClusterObj == null)
+              if(selectedClusterObj == null) {
                 return;
+              }
 
               if(selectedClusterObj.hypervisortype == "KVM") {
                 var items = [];
@@ -1072,11 +1179,11 @@
                         $("body").stopTime(timerKey);
                         if (result.jobstatus == 1) {
                           var returnedBasicPhysicalNetwork = result.jobresult.physicalnetwork;
-
+                          var label = returnedBasicPhysicalNetwork.id + trafficLabelParam('guest', data);
                           var returnedTrafficTypes = [];
 
                           $.ajax({
-                            url: createURL("addTrafficType&trafficType=Guest&physicalnetworkid=" + returnedBasicPhysicalNetwork.id),
+                            url: createURL("addTrafficType&trafficType=Guest&physicalnetworkid=" + label),
                             dataType: "json",
                             success: function(json) {
                               var jobId = json.addtraffictyperesponse.jobid;
@@ -1106,7 +1213,7 @@
                                         }
                                       }
                                       else if (result.jobstatus == 2) {
-                                        alert("Failed to add Guest traffic type to basic zone. Error: " + fromdb(result.jobresult.errortext));
+                                        alert("Failed to add Guest traffic type to basic zone. Error: " + _s(result.jobresult.errortext));
                                       }
                                     }
                                   },
@@ -1119,8 +1226,10 @@
                             }
                           });
 
+                          label = trafficLabelParam('management', data);
+
                           $.ajax({
-                            url: createURL("addTrafficType&trafficType=Management&physicalnetworkid=" + returnedBasicPhysicalNetwork.id),
+                            url: createURL("addTrafficType&trafficType=Management&physicalnetworkid=" + returnedBasicPhysicalNetwork.id + label),
                             dataType: "json",
                             success: function(json) {
                               var jobId = json.addtraffictyperesponse.jobid;
@@ -1150,7 +1259,7 @@
                                         }
                                       }
                                       else if (result.jobstatus == 2) {
-                                        alert("Failed to add Management traffic type to basic zone. Error: " + fromdb(result.jobresult.errortext));
+                                        alert("Failed to add Management traffic type to basic zone. Error: " + _s(result.jobresult.errortext));
                                       }
                                     }
                                   },
@@ -1163,9 +1272,12 @@
                             }
                           });
 
-                          if(selectedNetworkOfferingHavingSG == true && selectedNetworkOfferingHavingEIP == true && selectedNetworkOfferingHavingELB == true) {
+                          // Storage traffic
+                          if (data.physicalNetworks &&
+                              $.inArray('storage', data.physicalNetworks[0].trafficTypes) > -1) {
+                            label = trafficLabelParam('storage', data);
                             $.ajax({
-                              url: createURL("addTrafficType&trafficType=Public&physicalnetworkid=" + returnedBasicPhysicalNetwork.id),
+                              url: createURL('addTrafficType&physicalnetworkid=' + returnedBasicPhysicalNetwork.id + '&trafficType=Storage' + label),
                               dataType: "json",
                               success: function(json) {
                                 var jobId = json.addtraffictyperesponse.jobid;
@@ -1195,7 +1307,54 @@
                                           }
                                         }
                                         else if (result.jobstatus == 2) {
-                                          alert("Failed to add Public traffic type to basic zone. Error: " + fromdb(result.jobresult.errortext));
+                                          alert("Failed to add Management traffic type to basic zone. Error: " + _s(result.jobresult.errortext));
+                                        }
+                                      }
+                                    },
+                                    error: function(XMLHttpResponse) {
+                                      var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
+                                      alert("Failed to add Management traffic type to basic zone. Error: " + errorMsg);
+                                    }
+                                  });
+                                });
+                              }
+                            });
+                          }
+
+                          if (selectedNetworkOfferingHavingSG == true && selectedNetworkOfferingHavingEIP == true && selectedNetworkOfferingHavingELB == true) {
+                            label = trafficLabelParam('public', data);
+                            $.ajax({
+                              url: createURL("addTrafficType&trafficType=Public&physicalnetworkid=" + returnedBasicPhysicalNetwork.id + label),
+                              dataType: "json",
+                              success: function(json) {
+                                var jobId = json.addtraffictyperesponse.jobid;
+                                var timerKey = "addTrafficTypeJob_" + jobId;
+                                $("body").everyTime(2000, timerKey, function() {
+                                  $.ajax({
+                                    url: createURL("queryAsyncJobResult&jobid=" + jobId),
+                                    dataType: "json",
+                                    success: function(json) {
+                                      var result = json.queryasyncjobresultresponse;
+                                      if (result.jobstatus == 0) {
+                                        return; //Job has not completed
+                                      }
+                                      else {
+                                        $("body").stopTime(timerKey);
+                                        if (result.jobstatus == 1) {
+                                          returnedTrafficTypes.push(result.jobresult.traffictype);
+
+                                          if(returnedTrafficTypes.length == requestedTrafficTypeCount) { //all requested traffic types have been added
+                                            returnedBasicPhysicalNetwork.returnedTrafficTypes = returnedTrafficTypes;
+
+                                            stepFns.configurePhysicalNetwork({
+                                              data: $.extend(args.data, {
+                                                returnedBasicPhysicalNetwork: returnedBasicPhysicalNetwork
+                                              })
+                                            });
+                                          }
+                                        }
+                                        else if (result.jobstatus == 2) {
+                                          alert("Failed to add Public traffic type to basic zone. Error: " + _s(result.jobresult.errortext));
                                         }
                                       }
                                     },
@@ -1210,7 +1369,7 @@
                           }
                         }
                         else if (result.jobstatus == 2) {
-                          alert("createPhysicalNetwork failed. Error: " + fromdb(result.jobresult.errortext));
+                          alert("createPhysicalNetwork failed. Error: " + _s(result.jobresult.errortext));
                         }
                       }
                     },
@@ -1224,7 +1383,7 @@
             });
           }
           else if(args.data.zone.networkType == "Advanced") {
-            $(args.data.physicalNetworks).each(function(){
+            $(args.data.physicalNetworks).each(function(index) {
               var thisPhysicalNetwork = this;
               $.ajax({
                 url: createURL("createPhysicalNetwork&zoneid=" + args.data.returnedZone.id + "&name=" + todb(thisPhysicalNetwork.name)),
@@ -1248,20 +1407,29 @@
                             returnedPhysicalNetwork.originalId = thisPhysicalNetwork.id;
 
                             var returnedTrafficTypes = [];
+                            var label; // Traffic type label
                             $(thisPhysicalNetwork.trafficTypes).each(function(){
                               var thisTrafficType = this;
                               var apiCmd = "addTrafficType&physicalnetworkid=" + returnedPhysicalNetwork.id;
-                              if(thisTrafficType == "public")
+                              if(thisTrafficType == "public") {
                                 apiCmd += "&trafficType=Public";
-                              else if(thisTrafficType == "management")
+                                label = trafficLabelParam('public', data, index);
+                              }
+                              else if(thisTrafficType == "management") {
                                 apiCmd += "&trafficType=Management";
-                              else if(thisTrafficType == "guest")
+                                label = trafficLabelParam('management', data, index);
+                              }
+                              else if(thisTrafficType == "guest") {
                                 apiCmd += "&trafficType=Guest";
-                              else if(thisTrafficType == "storage")
+                                label = trafficLabelParam('guest', data, index);
+                              }
+                              else if(thisTrafficType == "storage") {
                                 apiCmd += "&trafficType=Storage";
+                                label = trafficLabelParam('storage', data, index);
+                              }
 
                               $.ajax({
-                                url: createURL(apiCmd),
+                                url: createURL(apiCmd + label),
                                 dataType: "json",
                                 success: function(json) {
                                   var jobId = json.addtraffictyperesponse.jobid;
@@ -1294,7 +1462,7 @@
                                             }
                                           }
                                           else if (result.jobstatus == 2) {
-                                            alert(apiCmd + " failed. Error: " + fromdb(result.jobresult.errortext));
+                                            alert(apiCmd + " failed. Error: " + _s(result.jobresult.errortext));
                                           }
                                         }
                                       },
@@ -1309,7 +1477,7 @@
                             });
                           }
                           else if (result.jobstatus == 2) {
-                            alert("createPhysicalNetwork failed. Error: " + fromdb(result.jobresult.errortext));
+                            alert("createPhysicalNetwork failed. Error: " + _s(result.jobresult.errortext));
                           }
                         }
                       },
@@ -1430,7 +1598,9 @@
 																											if(args.data.pluginFrom != null && args.data.pluginFrom.name == "installWizard") {
 																											  selectedNetworkOfferingHavingSG = args.data.pluginFrom.selectedNetworkOfferingHavingSG;
 																											}
-                                                      if(selectedNetworkOfferingHavingSG == true) { //need to Enable security group provider first
+                                                      if(selectedNetworkOfferingHavingSG == true) { //need to Enable security group provider first																											  
+																												message(dictionary['message.enabling.security.group.provider']); 
+																											
                                                         // get network service provider ID of Security Group
                                                         var securityGroupProviderId;
                                                         $.ajax({
@@ -1466,73 +1636,13 @@
                                                                   }
                                                                   else {
                                                                     $("body").stopTime(updateNetworkServiceProviderTimer);
-                                                                    if (result.jobstatus == 1) { //Security group provider has been enabled successfully
-                                                                      //"ElasticIP + ElasticLB"
-                                                                      if(selectedNetworkOfferingHavingEIP == true && selectedNetworkOfferingHavingELB == true) { //inside "selectedNetworkOfferingHavingSG == true" section
-                                                                        //add netscaler provider (start)
-                                                                        $.ajax({
-                                                                          url: createURL("addNetworkServiceProvider&name=Netscaler&physicalnetworkid=" + args.data.returnedBasicPhysicalNetwork.id),
-                                                                          dataType: "json",
-                                                                          async: false,
-                                                                          success: function(json) {
-                                                                            var addNetworkServiceProviderTimer = "asyncJob_" + json.addnetworkserviceproviderresponse.jobid;
-                                                                            $("body").everyTime(2000, addNetworkServiceProviderTimer, function() {
-                                                                              $.ajax({
-                                                                                url: createURL("queryAsyncJobResult&jobId=" + json.addnetworkserviceproviderresponse.jobid),
-                                                                                dataType: "json",
-                                                                                success: function(json) {
-                                                                                  var result = json.queryasyncjobresultresponse;
-                                                                                  if (result.jobstatus == 0) {
-                                                                                    return; //Job has not completed
-                                                                                  }
-                                                                                  else {
-                                                                                    $("body").stopTime(addNetworkServiceProviderTimer);
-                                                                                    if (result.jobstatus == 1) {
-                                                                                      args.data.returnedNetscalerProvider = result.jobresult.networkserviceprovider;
-
-                                                                                      stepFns.addNetscalerDevice({
-                                                                                        data: args.data
-                                                                                      });
-                                                                                    }
-                                                                                    else if (result.jobstatus == 2) {
-                                                                                      alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + fromdb(result.jobresult.errortext));
-                                                                                    }
-                                                                                  }
-                                                                                },
-                                                                                error: function(XMLHttpResponse) {
-                                                                                  var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
-                                                                                  alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + errorMsg);
-                                                                                }
-                                                                              });
-                                                                            });
-                                                                          }
-                                                                        });
-                                                                        //add netscaler provider (end)
-                                                                      }
-                                                                      else { //no "ElasticIP + ElasticLB"
-                                                                        //create a guest network for basic zone
-                                                                        var array2 = [];
-                                                                        array2.push("&zoneid=" + args.data.returnedZone.id);
-                                                                        array2.push("&name=guestNetworkForBasicZone");
-                                                                        array2.push("&displaytext=guestNetworkForBasicZone");
-                                                                        array2.push("&networkofferingid=" + args.data.zone.networkOfferingId);
-                                                                        $.ajax({
-                                                                          url: createURL("createNetwork" + array2.join("")),
-                                                                          dataType: "json",
-                                                                          async: false,
-                                                                          success: function(json) {
-                                                                            //basic zone has only one physical network => addPod() will be called only once => so don't need to double-check before calling addPod()
-                                                                            stepFns.addPod({
-                                                                              data: $.extend(args.data, {
-                                                                                returnedGuestNetwork: json.createnetworkresponse.network
-                                                                              })
-                                                                            });
-                                                                          }
-                                                                        });
-                                                                      }
+                                                                    if (result.jobstatus == 1) { //Security group provider has been enabled successfully      
+																																			stepFns.addNetscalerProvider({
+																																				data: args.data
+																																			});																																			
                                                                     }
                                                                     else if (result.jobstatus == 2) {
-                                                                      alert("failed to enable security group provider. Error: " + fromdb(result.jobresult.errortext));
+                                                                      alert("failed to enable security group provider. Error: " + _s(result.jobresult.errortext));
                                                                     }
                                                                   }
                                                                 },
@@ -1545,30 +1655,14 @@
                                                           }
                                                         });
                                                       }
-                                                      else { //selectedNetworkOfferingHavingSG == false
-                                                        //create a guest network for basic zone
-                                                        var array2 = [];
-                                                        array2.push("&zoneid=" + args.data.returnedZone.id);
-                                                        array2.push("&name=guestNetworkForBasicZone");
-                                                        array2.push("&displaytext=guestNetworkForBasicZone");
-                                                        array2.push("&networkofferingid=" + args.data.zone.networkOfferingId);
-                                                        $.ajax({
-                                                          url: createURL("createNetwork" + array2.join("")),
-                                                          dataType: "json",
-                                                          async: false,
-                                                          success: function(json) {
-                                                            //basic zone has only one physical network => addPod() will be called only once => so don't need to double-check before calling addPod()
-                                                            stepFns.addPod({
-                                                              data: $.extend(args.data, {
-                                                                returnedGuestNetwork: json.createnetworkresponse.network
-                                                              })
-                                                            });
-                                                          }
-                                                        });
+                                                      else { //selectedNetworkOfferingHavingSG == false                                                        																											
+                                                        stepFns.addNetscalerProvider({
+																													data: args.data
+																												});                                                       																									
                                                       }
                                                     }
                                                     else if (result.jobstatus == 2) {
-                                                      alert("failed to enable Virtual Router Provider. Error: " + fromdb(result.jobresult.errortext));
+                                                      alert("failed to enable Virtual Router Provider. Error: " + _s(result.jobresult.errortext));
                                                     }
                                                   }
                                                 },
@@ -1582,7 +1676,7 @@
                                         });
                                       }
                                       else if (result.jobstatus == 2) {
-                                        alert("configureVirtualRouterElement failed. Error: " + fromdb(result.jobresult.errortext));
+                                        alert("configureVirtualRouterElement failed. Error: " + _s(result.jobresult.errortext));
                                       }
                                     }
                                   },
@@ -1596,7 +1690,7 @@
                           });
                         }
                         else if (result.jobstatus == 2) {
-                          alert("updatePhysicalNetwork failed. Error: " + fromdb(result.jobresult.errortext));
+                          alert("updatePhysicalNetwork failed. Error: " + _s(result.jobresult.errortext));
                         }
                       }
                     },
@@ -1713,7 +1807,7 @@
                                                         }
                                                       }
                                                       else if (result.jobstatus == 2) {
-                                                        alert("failed to enable Virtual Router Provider. Error: " + fromdb(result.jobresult.errortext));
+                                                        alert("failed to enable Virtual Router Provider. Error: " + _s(result.jobresult.errortext));
                                                       }
                                                     }
                                                   },
@@ -1727,7 +1821,7 @@
                                           });
                                         }
                                         else if (result.jobstatus == 2) {
-                                          alert("configureVirtualRouterElement failed. Error: " + fromdb(result.jobresult.errortext));
+                                          alert("configureVirtualRouterElement failed. Error: " + _s(result.jobresult.errortext));
                                         }
                                       }
                                     },
@@ -1741,7 +1835,7 @@
                             });
                           }
                           else if (result.jobstatus == 2) {
-                            alert("updatePhysicalNetwork failed. Error: " + fromdb(result.jobresult.errortext));
+                            alert("updatePhysicalNetwork failed. Error: " + _s(result.jobresult.errortext));
                           }
                         }
                       },
@@ -1756,7 +1850,58 @@
             });
           }
         },
-
+				
+				addNetscalerProvider: function(args) {   	
+					if(selectedNetworkOfferingHavingNetscaler == true) {					  
+					  message(dictionary['message.adding.Netscaler.provider']); 
+						
+						$.ajax({
+							url: createURL("addNetworkServiceProvider&name=Netscaler&physicalnetworkid=" + args.data.returnedBasicPhysicalNetwork.id),
+							dataType: "json",
+							async: false,
+							success: function(json) {
+								var addNetworkServiceProviderTimer = "asyncJob_" + json.addnetworkserviceproviderresponse.jobid;
+								$("body").everyTime(2000, addNetworkServiceProviderTimer, function() {
+									$.ajax({
+										url: createURL("queryAsyncJobResult&jobId=" + json.addnetworkserviceproviderresponse.jobid),
+										dataType: "json",
+										success: function(json) {
+											var result = json.queryasyncjobresultresponse;
+											if (result.jobstatus == 0) {
+												return; //Job has not completed
+											}
+											else {
+												$("body").stopTime(addNetworkServiceProviderTimer);
+												if (result.jobstatus == 1) {
+													args.data.returnedNetscalerProvider = result.jobresult.networkserviceprovider;                       
+													stepFns.addNetscalerDevice({
+														data: args.data
+													});
+												}
+												else if (result.jobstatus == 2) {
+													alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + _s(result.jobresult.errortext));
+												}
+											}
+										},
+										error: function(XMLHttpResponse) {
+											var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
+											alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + errorMsg);
+										}
+									});
+								});
+							}
+						});
+						//add netscaler provider (end)
+					}
+					else { //selectedNetworkOfferingHavingNetscaler == false
+						//create a guest network for basic zone						
+						stepFns.addGuestNetwork({
+							data: args.data
+						});							
+					}		
+        },
+				
+				
         addNetscalerDevice: function(args) {
           message(dictionary['message.adding.Netscaler.device']); 
 
@@ -1884,33 +2029,13 @@
                                   }
                                   else {
                                     $("body").stopTime(updateNetworkServiceProviderTimer);
-                                    if(result.jobstatus == 1) {
-                                      //create a guest network for basic zone
-                                      var array2 = [];
-                                      array2.push("&zoneid=" + args.data.returnedZone.id);
-                                      array2.push("&name=guestNetworkForBasicZone");
-                                      array2.push("&displaytext=guestNetworkForBasicZone");
-                                      array2.push("&networkofferingid=" + args.data.zone.networkOfferingId);
-                                      $.ajax({
-                                        url: createURL("createNetwork" + array2.join("")),
-                                        dataType: "json",
-                                        async: false,
-                                        success: function(json) {
-                                          //basic zone has only one physical network => addPod() will be called only once => so don't need to double-check before calling addPod()
-                                          stepFns.addPod({
-                                            data: $.extend(args.data, {
-                                              returnedGuestNetwork: json.createnetworkresponse.network
-                                            })
-                                          });
-                                        },
-                                        error: function(XMLHttpResponse) {
-                                          var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
-                                          alert("failed to create a guest network for basic zone. Error: " + errorMsg);
-                                        }
-                                      });
+                                    if(result.jobstatus == 1) {																		 
+																			stepFns.addGuestNetwork({
+																				data: args.data
+																			});		
                                     }
                                     else if(result.jobstatus == 2) {
-                                      alert("failed to enable Netscaler provider. Error: " + fromdb(result.jobresult.errortext));
+                                      alert("failed to enable Netscaler provider. Error: " + _s(result.jobresult.errortext));
                                     }
                                   }
                                 }
@@ -1924,7 +2049,7 @@
                         });
                       }
                       else if(result.jobstatus == 2) {  //addNetscalerLoadBalancer failed
-                        error('addNetscalerDevice', fromdb(result.jobresult.errortext), { fn: 'addNetscalerDevice', args: args });
+                        error('addNetscalerDevice', _s(result.jobresult.errortext), { fn: 'addNetscalerDevice', args: args });
                       }
                     }
                   }
@@ -1937,7 +2062,34 @@
             }
           });
         },
-
+				
+				addGuestNetwork: function(args) {  //create a guest network for basic zone
+          message(dictionary['message.creating.guest.network']); 
+          
+					var array2 = [];
+					array2.push("&zoneid=" + args.data.returnedZone.id);
+					array2.push("&name=guestNetworkForBasicZone");
+					array2.push("&displaytext=guestNetworkForBasicZone");
+					array2.push("&networkofferingid=" + args.data.zone.networkOfferingId);
+					$.ajax({
+						url: createURL("createNetwork" + array2.join("")),
+						dataType: "json",
+						async: false,
+						success: function(json) {
+							//basic zone has only one physical network => addPod() will be called only once => so don't need to double-check before calling addPod()
+							stepFns.addPod({
+								data: $.extend(args.data, {
+									returnedGuestNetwork: json.createnetworkresponse.network
+								})
+							});
+						},
+						error: function(XMLHttpResponse) {
+							var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
+							alert("failed to create a guest network for basic zone. Error: " + errorMsg);
+						}
+					});																			
+				},
+								
         addPod: function(args) {
           message(dictionary['message.creating.pod']); 
 
@@ -2039,9 +2191,15 @@
             });
           }
           else { //basic zone without public traffic type , skip to next step
-            stepFns.configureGuestTraffic({
-              data: args.data
-            });
+            if (data.physicalNetworks && $.inArray('storage', data.physicalNetworks[0].trafficTypes) > -1) {
+              stepFns.configureStorageTraffic({
+                data: args.data
+              });
+            } else {
+              stepFns.configureGuestTraffic({
+                data: args.data
+              });
+            }
           }
         },
 
@@ -2055,8 +2213,7 @@
           var targetNetwork = $.grep(args.data.physicalNetworks, function(net) {
             return $.inArray('storage', net.trafficTypes) > -1; });
 
-          if (args.data.zone.networkType == 'Basic' ||
-              !targetNetwork.length) {
+          if (!targetNetwork.length) {
             return complete({});
           }
 
@@ -2224,7 +2381,7 @@
                               }
                             }
                             else if(result.jobstatus == 2){
-                              alert("error: " + fromdb(result.jobresult.errortext));
+                              alert("error: " + _s(result.jobresult.errortext));
                             }
                           }
                         },
@@ -2242,7 +2399,11 @@
         },
 
         addCluster: function(args) {
-          message(dictionary['message.creating.cluster']); 
+          message(dictionary['message.creating.cluster']);
+
+          // Have cluster use zone's hypervisor
+          args.data.cluster.hypervisor = args.data.zone.hypervisor ?
+            args.data.zone.hypervisor : args.data.cluster.hypervisor;
 
           var array1 = [];
           array1.push("&zoneId=" + args.data.returnedZone.id);
@@ -2312,7 +2473,7 @@
           array1.push("&zoneid=" + args.data.returnedZone.id);
           array1.push("&podid=" + args.data.returnedPod.id);
           array1.push("&clusterid=" + args.data.returnedCluster.id);
-          array1.push("&hypervisor=" + todb(args.data.cluster.hypervisor));
+          array1.push("&hypervisor=" + todb(args.data.returnedCluster.hypervisortype));
           var clustertype = args.data.returnedCluster.clustertype;
           array1.push("&clustertype=" + todb(clustertype));
           array1.push("&hosttags=" + todb(args.data.host.hosttags));

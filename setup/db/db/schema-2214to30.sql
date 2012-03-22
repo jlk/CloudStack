@@ -33,7 +33,7 @@ INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor
 INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('XenServer', '5.6', 50, 1);
 INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('XenServer', '5.6 FP1', 50, 1);
 INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('XenServer', '5.6 SP2', 50, 1);
-INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('XenServer', '6.0 beta', 50, 1);
+INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('XenServer', '6.0', 50, 1);
 INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('VMware', 'default', 128, 0);
 INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('VMware', '4.0', 128, 0);
 INSERT IGNORE INTO `cloud`.`hypervisor_capabilities`(hypervisor_type, hypervisor_version, max_guests_limit, security_group_enabled) VALUES ('VMware', '4.1', 128, 0);
@@ -75,6 +75,7 @@ CREATE TABLE  `cloud`.`project_account` (
 
 CREATE TABLE  `cloud`.`project_invitations` (
   `id` bigint unsigned NOT NULL auto_increment,
+  `uuid` varchar(40),
   `project_id` bigint unsigned NOT NULL COMMENT 'project id',
   `account_id` bigint unsigned COMMENT 'account id',
   `domain_id` bigint unsigned COMMENT 'domain id',
@@ -85,7 +86,11 @@ CREATE TABLE  `cloud`.`project_invitations` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_project_invitations__account_id` FOREIGN KEY(`account_id`) REFERENCES `account`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_project_invitations__domain_id` FOREIGN KEY(`domain_id`) REFERENCES `domain`(`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_project_invitations__project_id` FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_project_invitations__project_id` FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON DELETE CASCADE,
+  UNIQUE (`project_id`, `account_id`),
+  UNIQUE (`project_id`, `email`),
+  UNIQUE (`project_id`, `token`),
+  CONSTRAINT `uc_project_invitations__uuid` UNIQUE (`uuid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -125,33 +130,33 @@ ALTER TABLE `cloud`.`swift` ADD COLUMN `uuid` varchar(40);
 ALTER TABLE `cloud`.`swift` ADD COLUMN `url` varchar(255) NOT NULL;
 ALTER TABLE `cloud`.`swift` ADD COLUMN `key` varchar(255) NOT NULL COMMENT 'token for this user';
 ALTER TABLE `cloud`.`swift` ADD COLUMN `created` datetime COMMENT 'date the swift first signed on';
-ALTER TABLE `cloud`.`swift` ADD CONSTRAINT `uc_swift_uuid` UNIQUE (`uuid`);
+ALTER TABLE `cloud`.`swift` ADD CONSTRAINT `uc_swift__uuid` UNIQUE (`uuid`);
 
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'swift.enable', 'false', 'enable swift');
 
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'max.project.user.vms', '20', 'The default maximum number of user VMs that can be deployed for a project');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'max.project.public.ips', '20', 'The default maximum number of public IPs that can be consumed by a project');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'max.project.templates', '20', 'The default maximum number of templates that can be deployed for a project');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'max.project.snapshots', '20', 'The default maximum number of snapshots that can be created for a project');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'max.project.volumes', '20', 'The default maximum number of volumes that can be created for a project');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'max.project.user.vms', '20', 'The default maximum number of user VMs that can be deployed for a project');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'max.project.public.ips', '20', 'The default maximum number of public IPs that can be consumed by a project');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'max.project.templates', '20', 'The default maximum number of templates that can be deployed for a project');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'max.project.snapshots', '20', 'The default maximum number of snapshots that can be created for a project');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'max.project.volumes', '20', 'The default maximum number of volumes that can be created for a project');
 
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.invite.required', 'false', 'If invitation confirmation is required when add account to project. Default value is false');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.invite.timeout', '86400', 'Invitation expiration time (in seconds). Default is 1 day - 86400 seconds');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'allow.user.create.projects', 'true', 'Invitation expiration time (in seconds). Default is 1 day - 86400 seconds');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.invite.required', 'false', 'If invitation confirmation is required when add account to project. Default value is false');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.invite.timeout', '86400', 'Invitation expiration time (in seconds). Default is 1 day - 86400 seconds');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'allow.user.create.projects', 'true', 'If regular user can create a project; true by default');
 
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.email.sender', null, 'Sender of project invitation email (will be in the From header of the email).');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.smtp.host', null, 'SMTP hostname used for sending out email project invitations');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.smtp.password', null, 'Password for SMTP authentication (applies only if project.smtp.useAuth is true)');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.smtp.port', '465', 'Port the SMTP server is listening on');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.smtp.useAuth', null, 'If true, use SMTP authentication when sending emails');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'project.smtp.username', null, 'If regular user can create a project; true by default');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.email.sender', null, 'Sender of project invitation email (will be in the From header of the email).');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.smtp.host', null, 'SMTP hostname used for sending out email project invitations');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.smtp.password', null, 'Password for SMTP authentication (applies only if project.smtp.useAuth is true)');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.smtp.port', '465', 'Port the SMTP server is listening on');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.smtp.useAuth', null, 'If true, use SMTP authentication when sending emails');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Project Defaults', 'DEFAULT', 'management-server', 'project.smtp.username', null, 'Username for SMTP authentication (applies only if project.smtp.useAuth is true)');
 
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'cluster.memory.allocated.capacity.disablethreshold' , .85, 'Percentage (as a value between 0 and 1) of memory utilization above which allocators will disable using the cluster for low memory available. Keep the corresponding notification threshold lower than this to be notified beforehand.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'cluster.cpu.allocated.capacity.disablethreshold' , .85, 'Percentage (as a value between 0 and 1) of cpu utilization above which allocators will disable using the cluster for low cpu available. Keep the corresponding notification threshold lower than this to be notified beforehand.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'pool.storage.allocated.capacity.disablethreshold' , .85, 'Percentage (as a value between 0 and 1) of allocated storage utilization above which allocators will disable using the pool for low allocated storage available.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'pool.storage.capacity.disablethreshold' , .85, 'Percentage (as a value between 0 and 1) of storage utilization above which allocators will disable using the pool for low storage available.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'zone.vlan.capacity.notificationthreshold' , .75, 'Percentage (as a value between 0 and 1) of Zone Vlan utilization above which alerts will be sent about low number of Zone Vlans.');
-INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'cluster.localStorage.capacity.notificationthreshold' , .75, 'Percentage (as a value between 0 and 1) of Direct Network Public Ip Utilization above which alerts will be sent about low number of direct network public ips.');
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'cluster.localStorage.capacity.notificationthreshold' , .75, 'Percentage (as a value between 0 and 1) of local storage utilization above which alerts will be sent about low number of direct network public ips.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'zone.directnetwork.publicip.capacity.notificationthreshold' , .75, 'Percentage (as a value between 0 and 1) of Direct Network Public Ip Utilization above which alerts will be sent about low number of direct network public ips.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Alert', 'DEFAULT', 'management-server', 'zone.secstorage.capacity.notificationthreshold' , .75, 'Percentage (as a value between 0 and 1) of secondary storage utilization above which alerts will be sent about low storage available.');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'custom.diskoffering.size.min', '1', 'Minimum size in GB for custom disk offering');
@@ -161,8 +166,8 @@ INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Network', 'DEFAULT', 'manage
 
 update `cloud`.`configuration` set name = 'cluster.storage.allocated.capacity.notificationthreshold' , category = 'Alert' where name = 'storage.allocated.capacity.threshold' ;
 update `cloud`.`configuration` set name = 'cluster.storage.capacity.notificationthreshold' , category = 'Alert' where name = 'storage.capacity.threshold' ;
-update `cloud`.`configuration` set name = 'cluster.cpu.capacity.notificationthreshold' , category = 'Alert' where name = 'cpu.capacity.threshold' ;
-update `cloud`.`configuration` set name = 'cluster.memory.capacity.notificationthreshold' , category = 'Alert' where name = 'memory.capacity.threshold' ;
+update `cloud`.`configuration` set name = 'cluster.cpu.allocated.capacity.notificationthreshold' , category = 'Alert' where name = 'cpu.capacity.threshold' ;
+update `cloud`.`configuration` set name = 'cluster.memory.allocated.capacity.notificationthreshold' , category = 'Alert' where name = 'memory.capacity.threshold' ;
 update `cloud`.`configuration` set name = 'zone.virtualnetwork.publicip.capacity.notificationthreshold' , category = 'Alert' where name = 'public.ip.capacity.threshold' ;
 update `cloud`.`configuration` set name = 'pod.privateip.capacity.notificationthreshold' , category = 'Alert' where name = 'private.ip.capacity.threshold' ;
 
@@ -184,14 +189,14 @@ ALTER TABLE `cloud`.`domain` ADD CONSTRAINT `uc_domain__uuid` UNIQUE (`uuid`);
 ALTER TABLE `cloud`.`account` ADD COLUMN `uuid` varchar(40); 
 ALTER TABLE `cloud`.`account` ADD CONSTRAINT `uc_account__uuid` UNIQUE (`uuid`);
 
+ALTER TABLE `cloud_usage`.`account` ADD COLUMN `uuid` varchar(40);
+ALTER TABLE `cloud_usage`.`account` ADD CONSTRAINT `uc_account__uuid` UNIQUE (`uuid`);
+
 ALTER TABLE `cloud`.`user` ADD COLUMN `uuid` varchar(40); 
 ALTER TABLE `cloud`.`user` ADD CONSTRAINT `uc_user__uuid` UNIQUE (`uuid`);
 
 ALTER TABLE `cloud`.`projects` ADD COLUMN `uuid` varchar(40); 
 ALTER TABLE `cloud`.`projects` ADD CONSTRAINT `uc_projects__uuid` UNIQUE (`uuid`);
-
-ALTER TABLE `cloud`.`project_invitations` ADD COLUMN `uuid` varchar(40); 
-ALTER TABLE `cloud`.`project_invitations` ADD CONSTRAINT `uc_project_invitations__uuid` UNIQUE (`uuid`);
 
 ALTER TABLE `cloud`.`data_center` ADD COLUMN `uuid` varchar(40); 
 ALTER TABLE `cloud`.`data_center` ADD CONSTRAINT `uc_data_center__uuid` UNIQUE (`uuid`);
@@ -271,7 +276,7 @@ ALTER TABLE `cloud`.`op_host_capacity` ADD COLUMN `update_time` datetime;
 
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'apply.allocation.algorithm.to.pods', 'false', 'If true, deployment planner applies the allocation heuristics at pods first in the given datacenter during VM resource allocation');
 INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'vm.user.dispersion.weight', 1, 'Weight for user dispersion heuristic (as a value between 0 and 1) applied to resource allocation during vm deployment. Weight for capacity heuristic will be (1 - weight of user dispersion)');
-UPDATE `cloud`.`configuration` SET description = '[''random'', ''firstfit'', ''userdispersing'', ''userconcentratedpod_random'', ''userconcentratedpod_firstfit''] : Order in which resources will be considered for VM/volume allocation.' WHERE name = 'vm.allocation.algorithm';
+UPDATE `cloud`.`configuration` SET description = '[''random'', ''firstfit'', ''userdispersing'', ''userconcentratedpod_random'', ''userconcentratedpod_firstfit''] : Order in which hosts within a cluster will be considered for VM/volume allocation.' WHERE name = 'vm.allocation.algorithm';
 
 
 --;
@@ -314,12 +319,25 @@ ALTER TABLE `cloud`.`security_group_rule` ADD CONSTRAINT `fk_security_group_rule
 ALTER TABLE `cloud`.`security_group_rule` ADD INDEX `i_security_group_rule_network_id`(`security_group_id`);
 ALTER TABLE `cloud`.`security_group_rule` ADD INDEX `i_security_group_rule_allowed_network`(`allowed_network_id`);
 ALTER TABLE `cloud`.`vm_template` ADD COLUMN `enable_sshkey` int(1) unsigned NOT NULL default 0 COMMENT 'true if this template supports sshkey reset';
-ALTER TABLE `cloud`.`host` ADD COLUMN `resource_state` varchar(32) NOT NULL DEFAULT 'Disabled' COMMENT 'Is this host enabled for allocation for new resources';
 ALTER TABLE `cloud`.`vm_template` ADD COLUMN `sort_key` int(32) NOT NULL default 0 COMMENT 'sort key used for customising sort method';
 ALTER TABLE `cloud`.`disk_offering` ADD COLUMN `sort_key` int(32) NOT NULL default 0 COMMENT 'sort key used for customising sort method';
 ALTER TABLE `cloud`.`service_offering` ADD COLUMN `sort_key` int(32) NOT NULL default 0 COMMENT 'sort key used for customising sort method';
 
+---;
+--- Resource State;
+---;
 
+ALTER TABLE `cloud`.`host` ADD COLUMN `resource_state` varchar(32) NOT NULL DEFAULT 'Enabled' COMMENT 'Is this host enabled for allocation for new resources';
+UPDATE `cloud`.`host` SET resource_state='PrepareForMaintenance', status='Disconnected' WHERE status = 'PrepareForMaintenance';
+UPDATE `cloud`.`host` SET resource_state='ErrorInMaintenance', status='Disconnected' WHERE status = 'ErrorInMaintenance';
+UPDATE `cloud`.`host` SET resource_state='Maintenance', status='Disconnected' WHERE status = 'Maintenance';
+
+---;
+--- Storage network
+---;
+update `cloud`.`networks` set guru_name='StorageNetworkGuru' where traffic_type='Storage';
+update `cloud`.`configuration` set value=NULL where name='xen.storage.network.device1' and value='cloud-stor1';
+update `cloud`.`configuration` set value=NULL where name='xen.storage.network.device2' and value='cloud-stor2';
 
 --;
 --NAAS;
@@ -382,6 +400,8 @@ CREATE TABLE `cloud`.`physical_network_traffic_types` (
   `xen_network_label` varchar(255) COMMENT 'The network name label of the physical device dedicated to this traffic on a XenServer host',
   `kvm_network_label` varchar(255) DEFAULT 'cloudbr0' COMMENT 'The network name label of the physical device dedicated to this traffic on a KVM host',
   `vmware_network_label` varchar(255) DEFAULT 'vSwitch0' COMMENT 'The network name label of the physical device dedicated to this traffic on a VMware host',
+  `simulator_network_label` varchar(255) COMMENT 'The name labels needed for identifying the simulator',
+  `ovm_network_label` varchar(255) COMMENT 'The network name label of the physical device dedicated to this traffic on a Ovm host',
   `vlan` varchar(255) COMMENT 'The vlan tag to be sent down to a VMware host',
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_physical_network_traffic_types__physical_network_id` FOREIGN KEY (`physical_network_id`) REFERENCES `physical_network`(`id`) ON DELETE CASCADE,
@@ -496,7 +516,6 @@ ALTER TABLE `cloud`.`user_ip_address` ADD COLUMN `physical_network_id` bigint un
 ALTER TABLE `cloud`.`networks` ADD COLUMN `restart_required` int(1) unsigned NOT NULL DEFAULT 0 COMMENT '1 if restart is required for the network';
 DELETE FROM `cloud`.`configuration` where name='cmd.wait';
 
-ALTER TABLE `cloud`.`network_offerings` ADD COLUMN `conserve` int(1) unsigned NOT NULL DEFAULT 0 COMMENT 'Is this network offering is IP conserve mode enabled';
 UPDATE `cloud`.`configuration` set value='true' where name='firewall.rule.ui.enabled';
 CREATE TABLE  `cloud`.`op_user_stats_log` (
   `user_stats_id` bigint unsigned NOT NULL,
@@ -510,7 +529,6 @@ CREATE TABLE  `cloud`.`op_user_stats_log` (
   UNIQUE KEY (`user_stats_id`, `updated`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-ALTER TABLE `cloud`.`physical_network_traffic_types` ADD COLUMN `simulator_network_label` varchar(255) COMMENT  'The name labels needed for identifying the simulator';
 
 --;
 -- Network offerings
@@ -523,6 +541,9 @@ ALTER TABLE `cloud`.`network_offerings` ADD COLUMN `conserve_mode` int(1) unsign
 
 ALTER TABLE `cloud`.`network_offerings` MODIFY `name` varchar(64) COMMENT 'name of the network offering';
 ALTER TABLE `cloud`.`network_offerings` MODIFY `unique_name` varchar(64) COMMENT 'unique name of the network offering';
+ALTER TABLE `cloud`.`network_offerings` MODIFY `service_offering_id` bigint unsigned COMMENT 'service offering id that virtual router is tied to';
+ALTER TABLE `cloud`.`network_offerings` DROP KEY `service_offering_id`;
+
 ALTER TABLE `cloud`.`network_offerings` DROP `concurrent_connections`;
 
 ALTER TABLE `cloud`.`network_offerings` ADD COLUMN `state` char(32) COMMENT 'state of the network offering that has Disabled value by default';
@@ -595,7 +616,6 @@ CREATE TABLE `cloud`.`op_dc_storage_network_ip_address` (
   CONSTRAINT `fk_storage_ip_address__range_id` FOREIGN KEY (`range_id`) REFERENCES `dc_storage_network_ip_range`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-update `cloud`.`networks` set guru_name='StorageNetworkGuru' where traffic_type='Storage';
 
 ALTER TABLE  `cloud`.`event` ADD COLUMN `domain_id` bigint unsigned NOT NULL;
 ALTER TABLE  `cloud`.`op_host_capacity` ADD COLUMN `capacity_state` varchar(32) NOT NULL DEFAULT 'Enabled';
@@ -603,6 +623,9 @@ UPDATE `cloud`.`event` set account_id=1, user_id=1 where account_id=0 and user_i
 UPDATE `cloud`.`event` e set e.domain_id = (select acc.domain_id from `cloud`.`account` acc where acc.id = e.account_id) where e.domain_id = 0;
 
 update `cloud`.`vm_template` set removed=now() where id=2;
+
+INSERT INTO `cloud`.`vm_template` (id, unique_name, name, public, created, type, hvm, bits, account_id, url, checksum, enable_password, display_text,  format, guest_os_id, featured, cross_zones, hypervisor_type, extractable)
+    VALUES (5, 'centos56-x86_64-xen', 'CentOS 5.6(64-bit) no GUI (XenServer)', 1, now(), 'BUILTIN', 0, 64, 1, 'http://download.cloud.com/templates/builtin/centos56-x86_64.vhd.bz2', '905cec879afd9c9d22ecc8036131a180', 0, 'CentOS 5.6(64-bit) no GUI (XenServer)', 'VHD', 12, 1, 1, 'XenServer', 1);
 
 DELETE from `cloud`.`configuration` where name='firewall.rule.ui.enabled';
 
@@ -636,7 +659,6 @@ UPDATE `cloud`.`configuration` SET category = 'Hidden' WHERE name = 'kvm.public.
 UPDATE `cloud`.`configuration` SET category = 'Hidden' WHERE name = 'kvm.private.network.device';
 UPDATE `cloud`.`configuration` SET category = 'Hidden' WHERE name = 'kvm.guest.network.device';
 
-ALTER TABLE `cloud`.`physical_network_traffic_types` ADD COLUMN `ovm_network_label` varchar(255) COMMENT 'The network name label of the physical device dedicated to this traffic on a Ovm host';
 ALTER TABLE `cloud`.`dc_storage_network_ip_range` ADD COLUMN `gateway` varchar(15) NOT NULL COMMENT 'gateway ip address';
 
 ALTER TABLE `cloud`.`volumes` ADD COLUMN `last_pool_id` bigint unsigned;
@@ -672,4 +694,56 @@ ALTER TABLE `cloud_usage`.`usage_security_group` ADD INDEX `i_usage_security_gro
 ALTER TABLE `cloud_usage`.`usage_security_group` ADD INDEX `i_usage_security_group__created`(`created`);
 ALTER TABLE `cloud_usage`.`usage_security_group` ADD INDEX `i_usage_security_group__deleted`(`deleted`);
 
-update configuration set category = 'Usage' where category = 'Premium';
+UPDATE `cloud`.`configuration` SET category = 'Usage' where name in ('usage.execution.timezone', 'usage.stats.job.aggregation.range', 'usage.stats.job.exec.time', 'enable.usage.server', 'direct.network.stats.interval', 'usage.sanity.check.interval', 'usage.aggregation.timezone');
+
+ALTER TABLE  `cloud`.`op_dc_vnet_alloc` ADD CONSTRAINT `fk_op_dc_vnet_alloc__data_center_id` FOREIGN KEY (`data_center_id`) REFERENCES `data_center`(`id`) ON DELETE CASCADE;
+ALTER TABLE `cloud`.`domain` ADD COLUMN `type` varchar(255) NOT NULL DEFAULT 'Normal' COMMENT 'type of the domain - can be Normal or Project';
+
+UPDATE `cloud`.`configuration` SET name='vm.destroy.forcestop' where name='vm.destory.forcestop';
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'vm.destroy.forcestop', 'false', 'On destroy, force-stop takes this value');
+DELETE FROM `cloud`.`configuration` where name='skip.steps';
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'external.lb.default.capacity', '50', 'default number of networks permitted per external load balancer device');
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'external.firewall.default.capacity', '50', 'default number of networks permitted per external load firewall device');
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'resourcecount.check.interval', '0', 'Time (in seconds) to wait before retrying resource count check task. Default is 0 which is to never run the task');
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'AgentManager', 'secstorage.proxy', null, 'http proxy used by ssvm, in http://username:password@proxyserver:port format');
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'AgentManager', 'secstorage.vm.mtu.size', '1500', 'MTU size (in Byte) of storage network in secondary storage vms');
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'sortkey.algorithm', 'false', 'Sort algorithm for those who use sort key(template, disk offering, service offering, network offering), true means ascending sort while false means descending sort');
+
+INSERT IGNORE INTO `cloud`.`configuration` VALUES ('Advanced', 'DEFAULT', 'management-server', 'system.vm.default.hypervisor', null, 'Hypervisor type used to create system vm');
+
+UPDATE `cloud`.`network_offerings` SET display_text='Offering for Shared Security group enabled networks' where display_text='System-Guest-Network';
+
+UPDATE `cloud`.`configuration` SET category = 'Secure' where name in ('alert.smtp.password', 'network.loadbalancer.haproxy.stats.auth', 'security.singlesignon.key', 'project.smtp.password');
+
+
+
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (143, 1, 'CentOS 6.0 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (144, 1, 'CentOS 6.0 (64-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (145, 3, 'Oracle Enterprise Linux 5.6 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (146, 3, 'Oracle Enterprise Linux 5.6 (64-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (147, 3, 'Oracle Enterprise Linux 6.0 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (148, 3, 'Oracle Enterprise Linux 6.0 (64-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (149, 4, 'Red Hat Enterprise Linux 5.6 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (150, 4, 'Red Hat Enterprise Linux 5.6 (64-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (151, 5, 'SUSE Linux Enterprise Server 10 SP3 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (152, 5, 'SUSE Linux Enterprise Server 10 SP4 (64-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (153, 5, 'SUSE Linux Enterprise Server 10 SP4 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (154, 5, 'SUSE Linux Enterprise Server 11 SP1 (64-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (155, 5, 'SUSE Linux Enterprise Server 11 SP1 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (156, 10, 'Ubuntu 10.10 (32-bit)');
+INSERT IGNORE INTO `cloud`.`guest_os` (id, category_id, display_name) VALUES (157, 10, 'Ubuntu 10.10 (64-bit)');
+
+UPDATE `cloud`.`guest_os` SET category_id=4 where id=131;
+
+UPDATE `cloud`.`networks` n  SET n.name=(CONCAT('guestNetworkForBasicZone_', (SELECT name from `cloud`.`data_center` d where d.id=n.data_center_id AND d.networktype='Basic'))) where n.name is null and n.traffic_type='Guest';
+UPDATE `cloud`.`networks` n  SET n.display_text=(CONCAT('guestNetworkForBasicZone_', (SELECT name from `cloud`.`data_center` d where d.id=n.data_center_id AND d.networktype='Basic'))) where n.display_text is null and n.traffic_type='Guest';
+
+UPDATE `cloud`.`configuration` SET description='Bypass internal dns, use exetrnal dns1 and dns2' WHERE name='use.external.dns';
+UPDATE `cloud`.`configuration` SET category='Alert' WHERE name='capacity.check.period';
+

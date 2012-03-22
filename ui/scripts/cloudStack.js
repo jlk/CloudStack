@@ -10,10 +10,10 @@
         return ["dashboard", "instances", "storage", "network", "templates", "accounts", "domains", "events", "projects"];
       }
       else if (g_userProjectsEnabled) {
-        return ["dashboard", "instances", "storage", "network", "templates", "events", "projects"];
+        return ["dashboard", "instances", "storage", "network", "templates", "accounts", "events", "projects"];
       }
       else { //normal user
-        return ["dashboard", "instances", "storage", "network", "templates", "events"];
+        return ["dashboard", "instances", "storage", "network", "templates", "accounts", "events"];
       }
     },
     sections: {
@@ -37,6 +37,9 @@
   });
 
   $(function() {
+    // Get language
+    g_lang = $.cookie('lang') ? $.cookie('lang') : 'en';
+
     /**
      * Generic error handling
      */
@@ -264,13 +267,11 @@
             window.g_projectsInviteRequired = false;
           },
           error: function(XMLHttpRequest) {					  
-						var errorMsg = parseXMLHttpResponse(XMLHttpRequest);	
-            if(errorMsg.length == 0) {		
-						  if(XMLHttpRequest.status == 0) 
-                errorMsg = dictionary['error.unable.to.reach.management.server'];	       
-              else
-							  errorMsg = dictionary['label.error'];	     
-            }								
+						var errorMsg = parseXMLHttpResponse(XMLHttpRequest);							
+            if(errorMsg.length == 0 && XMLHttpRequest.status == 0) 		
+						  errorMsg = dictionary['error.unable.to.reach.management.server'];	 
+            else 
+              errorMsg = _l('error.invalid.username.password'); //override error message             						
             args.response.error(errorMsg);			
           },										
 					beforeSend : function(XMLHttpResponse) {				
@@ -362,7 +363,7 @@
 		
     // EULA check
     $.ajax({
-      url: 'eula.' + $.cookie('lang') + '.html',
+      url: 'eula.' + g_lang + '.html',
       dataType: 'html',
       success: function(html) {
         cloudStack.uiCustom.login($.extend(loginArgs, { eula: html, hasLogo: true }));

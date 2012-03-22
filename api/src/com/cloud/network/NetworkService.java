@@ -57,7 +57,7 @@ public interface NetworkService {
 
     boolean disassociateIpAddress(long ipAddressId) throws InsufficientAddressCapacityException;
 
-    Network createNetwork(CreateNetworkCmd cmd) throws InsufficientCapacityException, ConcurrentOperationException;
+    Network createNetwork(CreateNetworkCmd cmd) throws InsufficientCapacityException, ConcurrentOperationException, ResourceAllocationException;
 
     List<? extends Network> searchForNetworks(ListNetworksCmd cmd);
 
@@ -132,5 +132,7 @@ public interface NetworkService {
     Network getExclusiveGuestNetwork(long zoneId);
 
     List<Pair<TrafficType, String>> listTrafficTypeImplementor(ListTrafficTypeImplementorsCmd cmd);
+
+    List<? extends Network> getIsolatedNetworksWithSourceNATOwnedByAccountInZone(long zoneId, Account owner);
 
 }

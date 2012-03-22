@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.cloud.network.Network;
+import com.cloud.network.Network.GuestType;
 import com.cloud.network.NetworkAccountVO;
 import com.cloud.network.NetworkVO;
 import com.cloud.network.Networks.TrafficType;
@@ -95,5 +96,9 @@ public interface NetworkDao extends GenericDao<NetworkVO, Long> {
     void setCheckForGc(long networkId);
     
     int getNetworkCountByNetworkOffId(long networkOfferingId);
+    
+    long countNetworksUserCanCreate(long ownerId);
+
+    List<NetworkVO> listSourceNATEnabledNetworks(long accountId, long dataCenterId, GuestType type);
 
 }

@@ -574,8 +574,9 @@ public class ConfigurationServerImpl implements ConfigurationServer {
 
 	}
     
+    @Override
     @DB
-    protected void updateKeyPairs() {
+    public void updateKeyPairs() {
         // Grab the SSH key pair and insert it into the database, if it is not present
 
         String userid = System.getProperty("user.name");
@@ -903,7 +904,7 @@ public class ConfigurationServerImpl implements ConfigurationServer {
         netscalerServiceProviders.put(Service.Lb, Provider.Netscaler);
 
         // The only one diff between 1 and 2 network offerings is that the first one has SG enabled. In Basic zone only
-// first network offering has to be enabled, in Advance zone - the second one
+        // first network offering has to be enabled, in Advance zone - the second one
         Transaction txn = Transaction.currentTxn();
         txn.start();
 

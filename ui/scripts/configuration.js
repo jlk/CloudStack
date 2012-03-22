@@ -962,11 +962,43 @@
 								preFilter: function(args) {
                   var $availability = args.$form.find('.form-item[rel=availability]');
                   var $serviceOfferingId = args.$form.find('.form-item[rel=serviceOfferingId]');
+                  var hasAdvancedZones = false;
+
+                  // Check whether there are any advanced zones
+                  $.ajax({
+                    url: createURL('listZones'),
+                    data: { listAll: true, networktype: 'advanced' },
+                    async: false,
+                    success: function(json) {
+                      if (json.listzonesresponse.zone && json.listzonesresponse.zone.length) {
+                        hasAdvancedZones = true;
+                      }
+                    }
+                  });
 									
                   args.$form.bind('change', function() { //when any field in the dialog is changed
 									  //check whether to show or hide availability field
                     var $sourceNATField = args.$form.find('input[name=\"service.SourceNat.isEnabled\"]');
                     var $guestTypeField = args.$form.find('select[name=guestIpType]');
+                    var $basicSharedFields = args.$form.find('.form-item').filter(function() {
+                      var basicSharedFields = [
+                        'service.SourceNat.isEnabled',
+                        'service.StaticNat.isEnabled',
+                        'service.PortForwarding.isEnabled',
+                        'service.Lb.isEnabled'
+                      ];
+
+                      if ($.inArray($(this).attr('rel'), basicSharedFields) > -1) {
+                        return true;
+                      }
+
+                      if ($.inArray($(this).attr('depends-on'), basicSharedFields) > -1) {
+                        return true;
+                      }
+
+                      return false;
+                    });
+
                     if (!requiredNetworkOfferingExists &&
                         $sourceNATField.is(':checked') &&
                         $guestTypeField.val() == 'Isolated') {
@@ -974,7 +1006,7 @@
                     } else {
                       $availability.hide();
                     }
-										
+
 										//check whether to show or hide serviceOfferingId field										
                     var havingVirtualRouterForAtLeastOneService = false;									
 										$(serviceCheckboxNames).each(function(){										  
@@ -987,13 +1019,31 @@
 													return false; //break each loop
 												}
 											}																					
-										});		
+										});
+                    
                     if(havingVirtualRouterForAtLeastOneService == true)
                       $serviceOfferingId.css('display', 'inline-block');
                     else
                       $serviceOfferingId.hide();		
 
 	                  $(':ui-dialog').dialog('option', 'position', 'center');
+
+                    if (hasAdvancedZones && $guestTypeField.val() == 'Shared') {
+                      $basicSharedFields.hide();
+                      $basicSharedFields.find('input[type=checkbox]').attr('checked', false);
+                    } else {
+                      $basicSharedFields.each(function() {
+                        var $field = $(this);
+                        var $dependsOn = args.$form.find('.form-item').filter(function() {
+                          return $(this).attr('rel') == $field.attr('depends-on');
+                        });
+
+                        if (!$field.attr('depends-on') ||
+                            $dependsOn.find('input[type=checkbox]').is(':checked')) {
+                          $field.css('display', 'inline-block');
+                        }
+                      });
+                    }
                   });
 									
 									args.$form.change();
@@ -1005,6 +1055,7 @@
 
                   networkRate: { label: 'label.network.rate' },
 
+									/*
                   trafficType: {
                     label: 'label.traffic.type', validation: { required: true },
                     select: function(args) {
@@ -1015,6 +1066,7 @@
                       });
                     }
                   },
+									*/
 
                   guestIpType: {
                     label: 'label.guest.type',
@@ -1352,7 +1404,9 @@
 								
                 if(args.$form.find('.form-item[rel=serviceOfferingId]').css("display") == "none")									
 									delete inputData.serviceOfferingId;
-																
+								
+                inputData['traffictype'] = 'GUEST'; //traffic type dropdown has been removed since it has only one option ('Guest'). Hardcode traffic type value here.
+								
                 $.ajax({
                   url: createURL('createNetworkOffering'),
                   data: inputData,
@@ -1580,7 +1634,7 @@
                           return "Unlimited";
                         }
                         else {
-                          return fromdb(args) + " Mb/s";
+                          return _s(args) + " Mb/s";
 
                         }
                       }

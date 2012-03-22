@@ -71,16 +71,13 @@ public interface VirtualNetworkApplianceManager extends Manager, VirtualNetworkA
 	
 	List<DomainRouterVO> deployVirtualRouter(Network guestNetwork, DeployDestination dest, Account owner, Map<VirtualMachineProfile.Param, Object> params, boolean isRedundant) throws InsufficientCapacityException, ResourceUnavailableException, ConcurrentOperationException;
 	
-	List<VirtualRouter> applyDhcpEntry(Network config, NicProfile nic, VirtualMachineProfile<UserVm> vm, DeployDestination dest, ReservationContext context, List<DomainRouterVO> routers) throws ConcurrentOperationException, InsufficientCapacityException, ResourceUnavailableException;
-	List<VirtualRouter> applyUserData(Network config, NicProfile nic, VirtualMachineProfile<UserVm> vm, DeployDestination dest, ReservationContext context, List<DomainRouterVO> routers) throws ConcurrentOperationException, InsufficientCapacityException, ResourceUnavailableException;
-	
     boolean startRemoteAccessVpn(Network network, RemoteAccessVpn vpn, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
 	
 	boolean deleteRemoteAccessVpn(Network network, RemoteAccessVpn vpn, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
     
-    boolean associateIP (Network network, List<? extends PublicIpAddress> ipAddress, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
+    boolean associateIP (Network network, final List<? extends PublicIpAddress> ipAddress, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
     
-    boolean applyFirewallRules(Network network, List<? extends FirewallRule> rules, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
+    boolean applyFirewallRules(Network network, final List<? extends FirewallRule> rules, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
     
     List<VirtualRouter> getRoutersForNetwork(long networkId);
 
@@ -90,7 +87,11 @@ public interface VirtualNetworkApplianceManager extends Manager, VirtualNetworkA
 
     String getDnsBasicZoneUpdate();
     
-    boolean applyStaticNats(Network network, List<? extends StaticNat> rules, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
+    boolean applyStaticNats(Network network, final List<? extends StaticNat> rules, List<? extends VirtualRouter> routers) throws ResourceUnavailableException;
+    
+	boolean applyDhcpEntry(Network config, NicProfile nic, VirtualMachineProfile<UserVm> vm, DeployDestination dest, List<DomainRouterVO> routers) throws ResourceUnavailableException;
+	
+	boolean applyUserData(Network config, NicProfile nic, VirtualMachineProfile<UserVm> vm, DeployDestination dest, List<DomainRouterVO> routers) throws ResourceUnavailableException;
     
     long getDefaultVirtualRouterServiceOfferingId();
 }

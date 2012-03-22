@@ -22,6 +22,7 @@
         if (options.ignoreEmptyFields && !data[fieldName]) {
           return true;
         }
+
         var $td = $('<td>').addClass(fieldName).appendTo($tr);
         var $input, val;
         var $addButton = $multi.find('form .button.add-vm:not(.custom-action)').clone();
@@ -80,6 +81,10 @@
           });
         };
 
+        if (!itemData) itemData = [{}];
+        var itemName = data._itemName ?
+          itemData[0][data._itemName] : itemData[0].name;
+
         if ($multi.find('th,td').filter(function() {
           return $(this).attr('rel') == fieldName;
         }).is(':hidden')) return true;
@@ -88,8 +93,8 @@
           if (field.edit) {
             // Edit fields append value of data
             if (field.range) {
-              var start = data[field.range[0]];
-              var end = data[field.range[1]];
+              var start = _s(data[field.range[0]]);
+              var end = _s(data[field.range[1]]);
 
               $td.append($('<span>').html(start + ' - ' + end));
             } else {
@@ -98,20 +103,20 @@
               if (maxLengths &&
                   maxLengths[fieldName] &&
                   data[fieldName].length >= maxLengths[fieldName]) {
-                $td.append($('<span>').html(data[fieldName].toString().substr(0, maxLengths[fieldName] - 3).concat('...')));
+                $td.append($('<span>').html(_s(data[fieldName].toString().substr(0, maxLengths[fieldName] - 3).concat('...'))));
               } else {
-                $td.append($('<span>').html(data[fieldName]));
+                $td.append($('<span>').html(_s(data[fieldName])));
               }
               $td.attr('title', data[fieldName]);
             }
           } else if (field.select) {
-            $td.append($('<span>').html(
+            $td.append($('<span>').html(_s(
               // Get matching option text
               $multi.find('select').filter(function() {
                 return $(this).attr('name') == fieldName;
               }).find('option').filter(function() {
                 return $(this).val() == data[fieldName];
-              }).html()));
+              }).html())));
           } else if (field.addButton && !options.noSelect) {
             if (options.multipleAdd) {              
               $addButton.click(function() {
@@ -128,14 +133,16 @@
             } else {
               // Show VM data
               $td.html(options.multipleAdd ?
-                       itemData.length + ' VMs' : itemData[0].name);
+                       itemData.length + ' VMs' : itemName);
               $td.click(function() {
                 var $browser = $(this).closest('.detail-view').data('view-args').$browser;
 
                 if (options.multipleAdd) {
                   _medit.multiItem.details(itemData, $browser);
                 } else {
-                  _medit.details(itemData[0], $browser, { context: options.context });
+                  _medit.details(itemData[0], $browser, {
+                    context: options.context, itemName: itemName
+                  });
                 }
               });
             }
@@ -255,7 +262,11 @@
                         }
                       }
                     },
-                    error: cloudStack.dialog.error
+                    error: function(message) {
+                      cloudStack.dialog.notice({ message: message });
+                      $item.show();
+                      $loading.remove();
+                    }
                   }
                 });
               };
@@ -464,11 +475,12 @@
       detailViewArgs.actions = null;
       detailViewArgs.$browser = $browser;
       detailViewArgs.id = data.id;
-      detailViewArgs.jsonObj = data[0];
+      detailViewArgs.jsonObj = data;
       detailViewArgs.context = options.context;
 
       $browser.cloudBrowser('addPanel', {
-        title: data.name,
+        title: options.itemName ? options.itemName : data.name,
+        maximizeIfSelected: true,
         complete: function($newPanel) {
           $newPanel.detailView(detailViewArgs);
         }
@@ -510,8 +522,19 @@
 
       itemRow: function(item, itemActions, multiRule, $tbody) {
         var $tr = $('<tr>');
+        var itemName = multiRule._itemName ? item[multiRule._itemName] : item.name;
+        var $itemName = $('<span>').html(_s(itemName));
 
-        $tr.append($('<td></td>').appendTo($tr).html(item.name));
+        $tr.append($('<td>').addClass('name').appendTo($tr).append($itemName));
+
+        $itemName.click(function() {
+          _medit.details(item, $('#browser .container'), {
+            itemName: itemName,
+            context: {
+              instances: [item]
+            }
+          });
+        });
 
         if (itemActions) {
           var $itemActions = $('<td>').addClass('actions item-actions');
@@ -656,7 +679,7 @@
           response: {
             success: function(args) {
               $(args.data).each(function() {
-                $('<option>').val(this.name).html(this.description)
+                $('<option>').val(this.name).html(_s(this.description))
                   .appendTo($select);
               });
               _medit.refreshItemWidths($multi);

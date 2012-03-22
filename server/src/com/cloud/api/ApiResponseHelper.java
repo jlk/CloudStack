@@ -279,7 +279,7 @@ public class ApiResponseHelper implements ResponseGenerator {
 
         Long ips = ipLimit - ipTotal;
         // check how many free ips are left, and if it's less than max allowed number of ips from account - use this
-// value
+        // value
         Long ipsLeft = ApiDBUtils.countFreePublicIps();
         boolean unlimited = true;
         if (ips.longValue() > ipsLeft.longValue()) {
@@ -341,7 +341,25 @@ public class ApiResponseHelper implements ResponseGenerator {
         accountResponse.setVmStopped(vmStopped);
         accountResponse.setVmRunning(vmRunning);
         accountResponse.setObjectName("account");
-
+        
+        //get resource limits for projects
+        Long projectLimit = ApiDBUtils.findCorrectResourceLimit(ResourceType.project, account.getId());
+        String projectLimitDisplay = (accountIsAdmin || projectLimit == -1) ? "Unlimited" : String.valueOf(projectLimit);
+        Long projectTotal = ApiDBUtils.getResourceCount(ResourceType.project, account.getId());
+        String projectAvail = (accountIsAdmin || projectLimit == -1) ? "Unlimited" : String.valueOf(projectLimit - projectTotal);
+        accountResponse.setProjectLimit(projectLimitDisplay);
+        accountResponse.setProjectTotal(projectTotal);
+        accountResponse.setProjectAvailable(projectAvail);
+        
+        //get resource limits for networks
+        Long networkLimit = ApiDBUtils.findCorrectResourceLimit(ResourceType.network, account.getId());
+        String networkLimitDisplay = (accountIsAdmin || networkLimit == -1) ? "Unlimited" : String.valueOf(networkLimit);
+        Long networkTotal = ApiDBUtils.getResourceCount(ResourceType.network, account.getId());
+        String networkAvail = (accountIsAdmin || networkLimit == -1) ? "Unlimited" : String.valueOf(networkLimit - networkTotal);
+        accountResponse.setNetworkLimit(networkLimitDisplay);
+        accountResponse.setNetworkTotal(networkTotal);
+        accountResponse.setNetworkAvailable(networkAvail);
+      
         // adding all the users for an account as part of the response obj
         List<UserVO> usersForAccount = ApiDBUtils.listUsersByAccount(account.getAccountId());
         List<UserResponse> userResponseList = new ArrayList<UserResponse>();
@@ -1268,7 +1286,12 @@ public class ApiResponseHelper implements ResponseGenerator {
             } else {
                 userVmResponse.setDisplayName(userVm.getHostName());
             }
-
+            
+            if (caller.getType() == Account.ACCOUNT_TYPE_ADMIN) {
+                userVmResponse.setInstanceName(userVm.getInstanceName());
+            }
+            
+ 
             if (userVm.getPassword() != null) {
                 userVmResponse.setPassword(userVm.getPassword());
             }
@@ -2904,6 +2927,8 @@ public class ApiResponseHelper implements ResponseGenerator {
         } else {
             userVmData.setDisplayName(userVm.getHostName());
         }
+        userVmData.setInstanceName(userVm.getInstanceName());
+        
         userVmData.setDomainId(userVm.getDomainId());
 
         Account caller = UserContext.current().getCaller();
@@ -2939,6 +2964,7 @@ public class ApiResponseHelper implements ResponseGenerator {
         userVmResponse.setZoneId(userVmData.getZoneId());
         userVmResponse.setZoneName(userVmData.getZoneName());
         if (caller_is_admin) {
+            userVmResponse.setInstanceName(userVmData.getInstanceName());
             userVmResponse.setHostId(userVmData.getHostId());
             userVmResponse.setHostName(userVmData.getHostName());
         }
@@ -3180,8 +3206,8 @@ public class ApiResponseHelper implements ResponseGenerator {
         List<? extends Network.Provider> serviceProviders = ApiDBUtils.getProvidersForService(service);
         List<ProviderResponse> serviceProvidersResponses = new ArrayList<ProviderResponse>();
         for (Network.Provider serviceProvider : serviceProviders) {
-            // return only Virtual Router as a provider for the firewall
-            if (service == Service.Firewall && !(serviceProvider == Provider.VirtualRouter)) {
+            // return only Virtual Router/JuniperSRX as a provider for the firewall
+            if (service == Service.Firewall && !(serviceProvider == Provider.VirtualRouter || serviceProvider == Provider.JuniperSRX)) {
                 continue;
             }
 

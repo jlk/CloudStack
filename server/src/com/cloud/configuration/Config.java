@@ -58,11 +58,11 @@ public enum Config {
 	SecondaryStorageCapacityThreshold("Alert", ManagementServer.class, Float.class, "zone.secstorage.capacity.notificationthreshold", "0.75", "Percentage (as a value between 0 and 1) of secondary storage utilization above which alerts will be sent about low storage available.", null),
 	VlanCapacityThreshold("Alert", ManagementServer.class, Float.class, "zone.vlan.capacity.notificationthreshold", "0.75", "Percentage (as a value between 0 and 1) of Zone Vlan utilization above which alerts will be sent about low number of Zone Vlans.", null),
 	DirectNetworkPublicIpCapacityThreshold("Alert", ManagementServer.class, Float.class, "zone.directnetwork.publicip.capacity.notificationthreshold", "0.75", "Percentage (as a value between 0 and 1) of Direct Network Public Ip Utilization above which alerts will be sent about low number of direct network public ips.", null),
-	LocalStorageCapacityThreshold("Alert", ManagementServer.class, Float.class, "cluster.localStorage.capacity.notificationthreshold", "0.75", "Percentage (as a value between 0 and 1) of Direct Network Public Ip Utilization above which alerts will be sent about low number of direct network public ips.", null),
-	StorageAllocatedCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "pool.storage.allocated.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of allocated storage utilization above which allocators will disable using the cluster for low allocated storage available. Keep the corresponding notification threshold lower than this to be notified beforehand.", null),
-	StorageCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "pool.storage.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of storage utilization above which allocators will disable using the cluster for low storage available. Keep the corresponding notification threshold lower than this to be notified beforehand.", null),
+	LocalStorageCapacityThreshold("Alert", ManagementServer.class, Float.class, "cluster.localStorage.capacity.notificationthreshold", "0.75", "Percentage (as a value between 0 and 1) of local storage utilization above which alerts will be sent about low number of direct network public ips.", null),
+	StorageAllocatedCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "pool.storage.allocated.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of allocated storage utilization above which allocators will disable using the pool for low allocated storage available.", null),
+	StorageCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "pool.storage.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of storage utilization above which allocators will disable using the pool for low storage available.", null),
 	CPUCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "cluster.cpu.allocated.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of cpu utilization above which allocators will disable using the cluster for low cpu available. Keep the corresponding notification threshold lower than this to be notified beforehand.", null),
-	MemoryCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "cluster.memory.allocated.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of cpu utilization above which allocators will disable using the cluster for low memory available. Keep the corresponding notification threshold lower than this to be notified beforehand.", null),
+	MemoryCapacityDisableThreshold("Alert", ManagementServer.class, Float.class, "cluster.memory.allocated.capacity.disablethreshold", "0.85", "Percentage (as a value between 0 and 1) of memory utilization above which allocators will disable using the cluster for low memory available. Keep the corresponding notification threshold lower than this to be notified beforehand.", null),
 
 	
 	// Storage
@@ -78,7 +78,7 @@ public enum Config {
 	CopyVolumeWait("Storage", StorageManager.class, Integer.class, "copy.volume.wait", "10800", "In second, timeout for copy volume command", null),
 	CreatePrivateTemplateFromVolumeWait("Storage", UserVmManager.class, Integer.class, "create.private.template.from.volume.wait", "10800", "In second, timeout for CreatePrivateTemplateFromVolumeCommand", null),
 	CreatePrivateTemplateFromSnapshotWait("Storage", UserVmManager.class, Integer.class, "create.private.template.from.snapshot.wait", "10800", "In second, timeout for CreatePrivateTemplateFromSnapshotCommand", null),
- BackupSnapshotWait(
+	BackupSnapshotWait(
             "Storage", StorageManager.class, Integer.class, "backup.snapshot.wait", "21600", "In second, timeout for BackupSnapshotCommand", null),
 
 	// Network
@@ -154,7 +154,7 @@ public enum Config {
 	ExtractURLExpirationInterval("Advanced", ManagementServer.class, Integer.class, "extract.url.expiration.interval",  "14400", "The life of an extract URL after which it is deleted ", null),
 	HostStatsInterval("Advanced", ManagementServer.class, Integer.class, "host.stats.interval", "60000", "The interval (in milliseconds) when host stats are retrieved from agents.", null),
 	HostRetry("Advanced", AgentManager.class, Integer.class, "host.retry", "2", "Number of times to retry hosts for creating a volume", null),
-	IntegrationAPIPort("Advanced", ManagementServer.class, Integer.class, "integration.api.port", "8096", "Defaul API port", null),
+	IntegrationAPIPort("Advanced", ManagementServer.class, Integer.class, "integration.api.port", null, "Defaul API port", null),
 	InvestigateRetryInterval("Advanced", HighAvailabilityManager.class, Integer.class, "investigate.retry.interval", "60", "Time (in seconds) between VM pings when agent is disconnected", null),
 	MigrateRetryInterval("Advanced", HighAvailabilityManager.class, Integer.class, "migrate.retry.interval", "120", "Time (in seconds) between migration retries", null),
 	PingInterval("Advanced", AgentManager.class, Integer.class, "ping.interval", "60", "Ping interval in seconds", null),
@@ -300,6 +300,8 @@ public enum Config {
 	DefaultMaxAccountTemplates("Account Defaults", ManagementServer.class, Long.class, "max.account.templates", "20", "The default maximum number of templates that can be deployed for an account", null),
 	DefaultMaxAccountSnapshots("Account Defaults", ManagementServer.class, Long.class, "max.account.snapshots", "20", "The default maximum number of snapshots that can be created for an account", null),
 	DefaultMaxAccountVolumes("Account Defaults", ManagementServer.class, Long.class, "max.account.volumes", "20", "The default maximum number of volumes that can be created for an account", null),
+	DefaultMaxAccountNetworks("Account Defaults", ManagementServer.class, Long.class, "max.account.networks", "20", "The default maximum number of networks that can be created for an account", null),
+	
 	ResourceCountCheckInterval("Advanced", ManagementServer.class, Long.class, "resourcecount.check.interval", "0", "Time (in seconds) to wait before retrying resource count check task. Default is 0 which is to never run the task", "Seconds"),
 	DirectAgentLoadSize("Advanced", ManagementServer.class, Integer.class, "direct.agent.load.size", "16", "The number of direct agents to load each time", null),
 	
@@ -320,6 +322,7 @@ public enum Config {
     DefaultMaxProjectTemplates("Project Defaults", ManagementServer.class, Long.class, "max.project.templates", "20", "The default maximum number of templates that can be deployed for a project", null),
     DefaultMaxProjectSnapshots("Project Defaults", ManagementServer.class, Long.class, "max.project.snapshots", "20", "The default maximum number of snapshots that can be created for a project", null),
     DefaultMaxProjectVolumes("Project Defaults", ManagementServer.class, Long.class, "max.project.volumes", "20", "The default maximum number of volumes that can be created for a project", null),
+    DefaultMaxProjectNetworks("Project Defaults", ManagementServer.class, Long.class, "max.project.networks", "20", "The default maximum number of networks that can be created for a project", null),
 	
     ProjectInviteRequired("Project Defaults", ManagementServer.class, Boolean.class, "project.invite.required", "false", "If invitation confirmation is required when add account to project. Default value is false", null),
     ProjectInvitationExpirationTime("Project Defaults", ManagementServer.class, Long.class, "project.invite.timeout", "86400", "Invitation expiration time (in seconds). Default is 1 day - 86400 seconds", null),

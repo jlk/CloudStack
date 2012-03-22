@@ -140,6 +140,7 @@ import com.cloud.utils.net.Ip;
 import com.cloud.utils.net.NetUtils;
 import com.cloud.utils.ssh.SSHCmdHelper;
 import com.cloud.utils.ssh.sshException;
+import com.cloud.utils.AnnotationHelper;
 import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine.State;
 import com.cloud.vm.VirtualMachineManager;
@@ -329,23 +330,34 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
         // Check if the zone exists in the system
         DataCenterVO zone = _dcDao.findById(dcId);
         if (zone == null) {
-            throw new InvalidParameterValueException("Can't find zone by id " + dcId);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Can't find zone by the id specified");
+        	ex.addProxyObject(zone, dcId, "dcId");
+            throw ex;
         }
 
         Account account = UserContext.current().getCaller();
         if (Grouping.AllocationState.Disabled == zone.getAllocationState() && !_accountMgr.isRootAdmin(account.getType())) {
-            throw new PermissionDeniedException("Cannot perform this operation, Zone is currently disabled: " + dcId);
+        	PermissionDeniedException ex = new PermissionDeniedException("Cannot perform this operation, Zone with specified id is currently disabled");
+        	ex.addProxyObject(zone, dcId, "dcId");
+            throw ex;
         }
 
+        HostPodVO pod = _podDao.findById(podId);
+        if (pod == null) {
+        	throw new InvalidParameterValueException("Can't find pod with specified podId " + podId);
+        }
+        
         // Check if the pod exists in the system
         if (podId != null) {
             if (_podDao.findById(podId) == null) {
                 throw new InvalidParameterValueException("Can't find pod by id " + podId);
             }
             // check if pod belongs to the zone
-            HostPodVO pod = _podDao.findById(podId);
             if (!Long.valueOf(pod.getDataCenterId()).equals(dcId)) {
-                throw new InvalidParameterValueException("Pod " + podId + " doesn't belong to the zone " + dcId);
+            	InvalidParameterValueException ex = new InvalidParameterValueException("Pod with specified id doesn't belong to the zone " + dcId);
+            	ex.addProxyObject(pod, podId, "podId");                
+                ex.addProxyObject(zone, dcId, "dcId");
+                throw ex;
             }
         }
 
@@ -402,7 +414,11 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
             cluster = _clusterDao.persist(cluster);
         } catch (Exception e) {
             // no longer tolerate exception during the cluster creation phase
-            throw new CloudRuntimeException("Unable to create cluster " + clusterName + " in pod " + podId + " and data center " + dcId, e);
+        	CloudRuntimeException ex = new CloudRuntimeException("Unable to create cluster " + clusterName + " in pod and data center with specified ids", e);
+            // Get the pod VO object's table name.
+        	ex.addProxyObject(pod, podId, "podId");
+            ex.addProxyObject(zone, dcId, "dcId");
+            throw ex;
         }
         clusterId = cluster.getId();
         result.add(cluster);
@@ -500,12 +516,16 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
         if (clusterId != null) {
             ClusterVO cluster = _clusterDao.findById(clusterId);
             if (cluster == null) {
-                throw new InvalidParameterValueException("can not fine cluster for clusterId " + clusterId);
+            	InvalidParameterValueException ex = new InvalidParameterValueException("can not find cluster for specified clusterId");
+            	ex.addProxyObject(cluster, clusterId, "clusterId");
+                throw ex;
             } else {
                 if (cluster.getGuid() == null) {
                     List<HostVO> hosts = listAllHostsInCluster(clusterId);
                     if (!hosts.isEmpty()) {
-                        throw new CloudRuntimeException("Guid is not updated for cluster " + clusterId + " need to wait hosts in this cluster up");
+                    	CloudRuntimeException ex = new CloudRuntimeException("Guid is not updated for cluster with specified cluster id; need to wait for hosts in this cluster to come up");
+                    	ex.addProxyObject(cluster, clusterId, "clusterId");
+                        throw ex;
                     }
                 }
             }
@@ -543,18 +563,24 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
 
         Account account = UserContext.current().getCaller();
         if (Grouping.AllocationState.Disabled == zone.getAllocationState() && !_accountMgr.isRootAdmin(account.getType())) {
-            throw new PermissionDeniedException("Cannot perform this operation, Zone is currently disabled: " + dcId);
+        	PermissionDeniedException ex = new PermissionDeniedException("Cannot perform this operation, Zone with specified id is currently disabled");
+        	ex.addProxyObject(zone, dcId, "dcId");
+            throw ex;
         }
 
+        
         // Check if the pod exists in the system
         if (podId != null) {
-            if (_podDao.findById(podId) == null) {
-                throw new InvalidParameterValueException("Can't find pod by id " + podId);
-            }
-            // check if pod belongs to the zone
             HostPodVO pod = _podDao.findById(podId);
+            if (pod == null) {
+            	throw new InvalidParameterValueException("Can't find pod by id " + podId);
+            }
+            // check if pod belongs to the zone            
             if (!Long.valueOf(pod.getDataCenterId()).equals(dcId)) {
-                throw new InvalidParameterValueException("Pod " + podId + " doesn't belong to the zone " + dcId);
+            	InvalidParameterValueException ex = new InvalidParameterValueException("Pod with specified podId" + podId + " doesn't belong to the zone with specified zoneId" + dcId);
+            	ex.addProxyObject(pod, podId, "podId"); 
+                ex.addProxyObject(zone, dcId, "dcId");
+                throw ex;
             }
         }
 
@@ -597,14 +623,21 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
         }
 
         if (clusterName != null) {
-            ClusterVO cluster = new ClusterVO(dcId, podId, clusterName);
+            HostPodVO pod = _podDao.findById(podId);
+            if (pod == null) {
+            	throw new InvalidParameterValueException("Can't find pod by id " + podId);
+            }
+        	ClusterVO cluster = new ClusterVO(dcId, podId, clusterName);
             cluster.setHypervisorType(hypervisorType);
             try {
                 cluster = _clusterDao.persist(cluster);
             } catch (Exception e) {
                 cluster = _clusterDao.findBy(clusterName, podId);
                 if (cluster == null) {
-                    throw new CloudRuntimeException("Unable to create cluster " + clusterName + " in pod " + podId + " and data center " + dcId, e);
+                	CloudRuntimeException ex = new CloudRuntimeException("Unable to create cluster " + clusterName + " in pod with specified podId and data center with specified dcID", e);
+                	ex.addProxyObject(pod, podId, "podId"); 
+                    ex.addProxyObject(zone, dcId, "dcId");
+                    throw ex;   
                 }
             }
             clusterId = cluster.getId();
@@ -705,7 +738,7 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
         // Verify that host exists
         HostVO host = _hostDao.findById(hostId);
         if (host == null) {
-            throw new InvalidParameterValueException("Host with id " + hostId + " doesn't exist");
+            throw new InvalidParameterValueException("Host with id " + hostId + " doesn't exist");            
         }
         _accountMgr.checkAccessAndSpecifyAuthority(UserContext.current().getCaller(), host.getDataCenterId());
         

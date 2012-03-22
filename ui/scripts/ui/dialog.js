@@ -139,12 +139,12 @@
 
                   var $option = $('<option>')
                     .appendTo($input)
-                    .val(id)
-                    .html(description);
+                    .val(_s(id))
+                    .html(_s(description));
                 });
 
                 if (field.defaultValue) {
-                  $input.val(field.defaultValue);
+                  $input.val(_s(field.defaultValue));
                 }
 
                 $input.trigger('change');
@@ -242,6 +242,14 @@
               }
             }
           });
+				} else if(field.isTextarea) {				 
+					$input = $('<textarea>').attr({
+						name: key
+					}).appendTo($value);
+
+					if (field.defaultValue) {
+						$input.val(field.defaultValue);
+					}					
         } else {
           // Text field
           if (field.range) {
@@ -271,7 +279,8 @@
             if (field.defaultValue) {
               $input.val(field.defaultValue);
             }
-          }
+          }					
+					$input.addClass("disallowSpecialCharacters");					
         }
 
         $input.data('validation-rules', field.validation);

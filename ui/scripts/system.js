@@ -1,4 +1,64 @@
 (function($, cloudStack) {
+  cloudStack.publicIpRangeAccount = {
+    dialog: function(args) {      
+      return function(args) {
+        var data = args.data ? args.data : {};
+        var fields = {
+          account: { label: 'Account', defaultValue: data.account },
+          domainid: {
+            label: 'Domain',
+            defaultValue: data.domainid,
+            select: function(args) {
+              $.ajax({
+                url: createURL('listDomains'),
+                data: { listAll: true },
+                success: function(json) {
+                  args.response.success({
+                    data: $.map(json.listdomainsresponse.domain, function(domain) {
+                      return {
+                        id: domain.id,
+                        description: domain.path
+                      };
+                    })
+                  });
+                }
+              });
+            }
+          }
+        };
+        var success = args.response.success;
+        
+        if (args.$item) { // Account data is read-only after creation
+          $.ajax({
+            url: createURL('listDomains'),
+            data: { id: data.domainid, listAll: true },
+            success: function(json) {
+              var domain = json.listdomainsresponse.domain[0];
+              
+              cloudStack.dialog.notice({
+                message: '<ul><li>' + _l('label.account') + ': ' + data.account + '</li>' +
+                  '<li>' + _l('label.domain') + ': ' + domain.path + '</li></ul>'
+              });
+            }
+          });
+        } else {
+          cloudStack.dialog.createForm({
+            form: {
+              title: 'label.add.account',
+              desc: '(optional) Please specify an account to be associated with this IP range.',
+              fields: fields
+            },
+            after: function(args) {
+              var data = cloudStack.serializeForm(args.$form);
+              
+              success({ data: data });
+            }
+          });
+        }
+      };     
+    }
+  };
+  
 
   var zoneObjs, podObjs, clusterObjs, domainObjs, networkOfferingObjs, physicalNetworkObjs;
   var selectedClusterObj, selectedZoneObj, selectedPublicNetworkObj, selectedManagementNetworkObj, selectedPhysicalNetworkObj, selectedGuestNetworkObj;
@@ -345,6 +405,13 @@
                       'vlan': { edit: true, label: 'label.vlan', isOptional: true },
                       'startip': { edit: true, label: 'label.start.IP' },
                       'endip': { edit: true, label: 'label.end.IP' },
+                      'account': {
+                        label: 'label.account',
+                        custom: {
+                          buttonLabel: 'label.add.account',
+                          action: cloudStack.publicIpRangeAccount.dialog()
+                        }
+                      },
                       'add-rule': { label: 'label.add', addButton: true }
                     },
                     add: {
@@ -363,6 +430,11 @@
                         array1.push("&startip=" + args.data.startip);
                         if(args.data.endip != null && args.data.endip.length > 0)
                           array1.push("&endip=" + args.data.endip);
+
+                        if (args.data.account) {
+                          array1.push("&account=" + args.data.account.account);
+                          array1.push("&domainid=" + args.data.account.domainid);
+                        }
 
                         array1.push("&forVirtualNetwork=true");  //indicates this new IP range is for public network, not guest network
 
@@ -405,6 +477,9 @@
                                   }
                                 }
                               });
+                            },
+                            error: function(json) {
+                              args.response.error(parseXMLHttpResponse(json));
                             }
                           });
                         }
@@ -416,7 +491,18 @@
                         dataType: "json",
                         success: function(json) {
                           var items = json.listvlaniprangesresponse.vlaniprange;
-                          args.response.success({data: items});
+
+                          args.response.success({
+                            data: $.map(items, function(item) {
+                              return $.extend(item, {
+                                account: {
+                                  _buttonLabel: item.account,
+                                  account: item.account,
+                                  domainid: item.domainid
+                                }
+                              });
+                            })
+                          });
                         }
                       });
                     }
@@ -679,13 +765,15 @@
                     vlan = args.data.startVlan;
                   else
                     vlan = args.data.startVlan + "-" + args.data.endVlan;
+										
+									var array1 = [];
+                  if(vlan != null && vlan.length > 0) 
+                    array1.push("&vlan=" + todb(vlan));		
+                  if(args.data.tags != null && args.data.tags.length > 0)
+                    array1.push("&tags=" + todb(args.data.tags));									
+										
                   $.ajax({
-                    url: createURL("updatePhysicalNetwork"),
-                    data: {
-                      id: selectedPhysicalNetworkObj.id,
-                      vlan: todb(vlan),
-                      tags: args.data.tags
-                    },
+                    url: createURL("updatePhysicalNetwork&id=" + selectedPhysicalNetworkObj.id + array1.join("")),                   
                     dataType: "json",
                     success: function(json) {
                       var jobId = json.updatephysicalnetworkresponse.jobid;
@@ -723,7 +811,7 @@
                   return hiddenFields;
                 },
                 fields: [                  
-                  {                    
+                  { //updatePhysicalNetwork API               
                     state: { label: 'label.state' },
                     startVlan: {
                       label: 'label.start.vlan',
@@ -733,23 +821,19 @@
                       label: 'label.end.vlan',
                       isEditable: true
                     },
-                    broadcastdomainrange: { label: 'label.broadcast.domain.range' }                    
+										tags: { label: 'Tags', isEditable: true },
+                    broadcastdomainrange: { label: 'label.broadcast.domain.range' }                   
                   },
-                  {
-                    tags: { label: 'Tags', isEditable: true },
+                  { //updateTrafficType API                   
                     xennetworklabel: { label: 'label.xen.traffic.label', isEditable: true },
                     kvmnetworklabel: { label: 'label.kvm.traffic.label', isEditable: true },
                     vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true }
                   }
                 ],
                 dataProvider: function(args) {                  
-                  var startVlan, endVlan;
-                  var vlan = selectedPhysicalNetworkObj.vlan;
-                  var xentrafficlabel, kvmtrafficlabel, vmwaretrafficlabel;
-
-                  // Get traffic label data
-                  var trafficType = getTrafficType(selectedPhysicalNetworkObj, 'Guest');
-
+                  //physical network
+									var startVlan, endVlan;
+                  var vlan = selectedPhysicalNetworkObj.vlan;  
                   if(vlan != null && vlan.length > 0) {
                     if(vlan.indexOf("-") != -1) {
                       var vlanArray = vlan.split("-");
@@ -760,11 +844,15 @@
                       startVlan = vlan;
                     }
                     selectedPhysicalNetworkObj["startVlan"] = startVlan;
-                    selectedPhysicalNetworkObj["endVlan"] = endVlan;
-                    selectedPhysicalNetworkObj["xennetworklabel"] = trafficType.xennetworklabel;
-                    selectedPhysicalNetworkObj["kvmnetworklabel"] = trafficType.kvmnetworklabel;
-                    selectedPhysicalNetworkObj["vmwarenetworklabel"] = trafficType.vmwarenetworklabel;
+                    selectedPhysicalNetworkObj["endVlan"] = endVlan;                    
                   }
+									
+									//traffic type
+									var xentrafficlabel, kvmtrafficlabel, vmwaretrafficlabel;
+                  var trafficType = getTrafficType(selectedPhysicalNetworkObj, 'Guest');
+									selectedPhysicalNetworkObj["xennetworklabel"] = trafficType.xennetworklabel;
+									selectedPhysicalNetworkObj["kvmnetworklabel"] = trafficType.kvmnetworklabel;
+									selectedPhysicalNetworkObj["vmwarenetworklabel"] = trafficType.vmwarenetworklabel;
 
                   args.response.success({
                     actionFilter: function() {
@@ -860,6 +948,9 @@
                                   }
                                 }
                               });
+                            },
+                            error: function(json) {
+                              args.response.error(parseXMLHttpResponse(json));
                             }
                           });
                         }
@@ -1105,25 +1196,7 @@
                                 success: function(json) {																  
                                   networkOfferingObjs = json.listnetworkofferingsresponse.networkoffering;																	
                                   if (networkOfferingObjs != null && networkOfferingObjs.length > 0) {
-                                    for (var i = 0; i < networkOfferingObjs.length; i++) {
-																		
-                                      //if security groups provider is disabled, exclude network offerings that has "SecurityGroupProvider" in service
-                                      //comment the following section becaues nspMap is empty unless network providers has been clicked.
-																			/*
-																			if(nspMap["securityGroups"].state == "Disabled"){ 
-                                        var includingSGP = false;
-                                        var serviceObjArray = networkOfferingObjs[i].service;
-                                        for(var k = 0; k < serviceObjArray.length; k++) {
-                                          if(serviceObjArray[k].name == "SecurityGroup") {
-                                            includingSGP = true;
-                                            break;
-                                          }
-                                        }
-                                        if(includingSGP == true)
-                                          continue; //skip to next network offering
-                                      }
-																			*/																			
-																																						
+                                    for (var i = 0; i < networkOfferingObjs.length; i++) {	
 																			//if args.scope == "account-specific" or "project-specific", exclude Isolated network offerings with SourceNat service (bug 12869)																			
 																			if(args.scope == "account-specific" || args.scope == "project-specific") {
 																			  var includingSourceNat = false;
@@ -1194,21 +1267,29 @@
                         var $form = args.$form;
 												
 												var array1 = [];
-                        array1.push("&zoneId=" + selectedZoneObj.id);												
-												array1.push("&physicalnetworkid=" + selectedPhysicalNetworkObj.id);		
+                        array1.push("&zoneId=" + selectedZoneObj.id);		
+												array1.push("&networkOfferingId=" + args.data.networkOfferingId);																							
+												
+												//Pass physical network ID to createNetwork API only when network offering's guestiptype is Shared.                        
+												var selectedNetworkOfferingObj;												
+												$(networkOfferingObjs).each(function(){												  
+													if(this.id == args.data.networkOfferingId) {
+													  selectedNetworkOfferingObj = this;
+														return false; //break each loop
+													}
+												});												
+												if(selectedNetworkOfferingObj.guestiptype == "Shared")
+												  array1.push("&physicalnetworkid=" + selectedPhysicalNetworkObj.id);																									
+												
                         array1.push("&name=" + todb(args.data.name));
                         array1.push("&displayText=" + todb(args.data.description));
-                        array1.push("&networkOfferingId=" + args.data.networkOfferingId);
-                      											 
+                                              											 
 											  if(($form.find('.form-item[rel=vlanId]').css("display") != "none") && (args.data.vlanId != null && args.data.vlanId.length > 0)) 
 												  array1.push("&vlan=" + todb(args.data.vlanId));                        
 												
 												if($form.find('.form-item[rel=domainId]').css("display") != "none") {
 												  array1.push("&domainId=" + args.data.domainId);
 
-                          if ($form.find('.form-item[rel=subdomainaccess]:visible input:checked').size()) {
-                            array1.push("&subdomainaccess=true");
-                          }
 													if($form.find('.form-item[rel=account]').css("display") != "none") {  //account-specific																											
 														array1.push("&account=" + args.data.account);
 														array1.push("&acltype=account");	
@@ -1216,9 +1297,19 @@
 													else if($form.find('.form-item[rel=projectId]').css("display") != "none") {  //project-specific																											
 														array1.push("&projectid=" + args.data.projectId);
 														array1.push("&acltype=account");	
+																																									
+														if ($form.find('.form-item[rel=subdomainaccess]:visible input:checked').size()) 
+															array1.push("&subdomainaccess=true");														 
+														else 
+															array1.push("&subdomainaccess=false");																														
 													}													
 													else {  //domain-specific
-														array1.push("&acltype=domain");														
+														array1.push("&acltype=domain");		
+
+                            if ($form.find('.form-item[rel=subdomainaccess]:visible input:checked').size()) 
+															array1.push("&subdomainaccess=true");														 
+														else 
+															array1.push("&subdomainaccess=false");															
 													}
 												}
 												else { //zone-wide
@@ -1290,7 +1381,7 @@
 										});
 																			
 										$.ajax({
-                      url: createURL("listNetworks&projectid=-1&trafficType=Guest&zoneId=" + selectedZoneObj.id + "&physicalnetworkid=" + selectedPhysicalNetworkObj.id + "&page=" + args.page + "&pagesize=" + pageSize + array1.join("")),
+                      url: createURL("listNetworks&listAll=true&projectid=-1&trafficType=Guest&zoneId=" + selectedZoneObj.id + "&physicalnetworkid=" + selectedPhysicalNetworkObj.id + "&page=" + args.page + "&pagesize=" + pageSize + array1.join("")),
                       dataType: "json",
 											async: false,
                       success: function(json) {
@@ -1432,10 +1523,32 @@
                       },
 											
 											'restart': { 											  
-												label: 'label.restart.network',
-												action: function(args) {												  
+												label: 'label.restart.network',												
+												createForm: {
+													title: 'label.restart.network',
+													desc: 'message.restart.network',
+													preFilter: function(args) {		
+														if(selectedZoneObj.networktype == "Basic") {										  								
+															args.$form.find('.form-item[rel=cleanup]').find('input').removeAttr('checked'); //unchecked
+															args.$form.find('.form-item[rel=cleanup]').hide(); //hidden
+														}
+														else {										  												
+															args.$form.find('.form-item[rel=cleanup]').find('input').attr('checked', 'checked'); //checked											
+															args.$form.find('.form-item[rel=cleanup]').css('display', 'inline-block'); //shown
+														}											
+													},
+													fields: {
+														cleanup: {
+															label: 'label.clean.up',
+															isBoolean: true   
+														}
+													}
+												},											
+												action: function(args) {	                          
+                          var array1 = [];									
+                          array1.push("&cleanup=" + (args.data.cleanup == "on"));													
 													$.ajax({
-														url: createURL("restartNetwork&cleanup=true&id=" + args.context.networks[0].id),
+														url: createURL("restartNetwork&cleanup=true&id=" + args.context.networks[0].id + array1.join("")),
 														dataType: "json",
 														async: true,
 														success: function(json) {														  
@@ -1452,10 +1565,7 @@
 														}
 													});
 												},
-												messages: {
-													confirm: function(args) {													
-														return 'message.restart.network';
-													},													
+												messages: {																									
 													notification: function(args) {													
 														return 'label.restart.network';
 													}													
@@ -1465,7 +1575,7 @@
 												}												
 											},
 											
-                      'delete': { 
+                      'remove': { 
                         label: 'label.action.delete.network',
                         messages: {
                           confirm: function(args) {
@@ -1612,7 +1722,10 @@
                         ],
                         dataProvider: function(args) {    
                           selectedGuestNetworkObj = args.context.networks[0];                        
-                          args.response.success({data: selectedGuestNetworkObj});
+                          args.response.success({
+													  actionFilter: cloudStack.actionFilter.guestNetwork,
+													  data: selectedGuestNetworkObj
+													});
                         }
                       }
                     }
@@ -1638,7 +1751,40 @@
               label: 'label.state', indicator: { 'Enabled': 'on', 'Disabled': 'off' }
             },
             vlan: { label: 'label.vlan.range' }
-          }
+          },
+										
+					actions: {
+						remove: {
+							label: 'label.action.delete.physical.network',
+							messages: {
+								confirm: function(args) {
+									return 'message.action.delete.physical.network';
+								},
+								notification: function(args) {
+									return 'label.action.delete.physical.network';
+								}
+							},
+							action: function(args) {								
+								$.ajax({
+									url: createURL("deletePhysicalNetwork&id=" + args.context.physicalNetworks[0].id),
+									dataType: "json",
+									async: true,
+									success: function(json) {		
+										var jid = json.deletephysicalnetworkresponse.jobid;
+										args.response.success(
+											{_custom:
+											 {jobId: jid
+											 }
+											}
+										);										
+									}
+								});
+							},
+							notification: {
+								poll: pollAsyncJobResult
+							}
+						}
+					}					
         },
         dataProvider: function(args) {     
 				  //Comment out next line which causes Bug 13852 (Unable to configure multiple physical networks with service providers of the same device type).
@@ -2185,10 +2331,15 @@
                       details: {
                         title: 'label.details',
                         preFilter: function(args) {
-                          if (!args.context.routers[0].project)
-                              return ['project', 'projectid'];
-
-                          return [];
+												  var hiddenFields = [];
+                          if (!args.context.routers[0].project) {
+													  hiddenFields.push('project');
+														hiddenFields.push('projectid');                              
+                          }													
+													if(selectedZoneObj.networktype == 'Basic') {
+													  hiddenFields.push('publicip'); //In Basic zone, guest IP is public IP. So, publicip is not returned by listRouters API. Only guestipaddress is returned by listRouters API.
+											    }
+                          return hiddenFields;
                         },
                         fields: [
                           {
@@ -2409,7 +2560,7 @@
                                   addExternalLoadBalancer(args, selectedPhysicalNetworkObj, "addNetscalerLoadBalancer", "addnetscalerloadbalancerresponse", "netscalerloadbalancer");
                                 }
                                 else if (result.jobstatus == 2) {
-                                  alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + fromdb(result.jobresult.errortext));
+                                  alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + _s(result.jobresult.errortext));
                                 }
                               }
                             },
@@ -2628,7 +2779,7 @@
                                   addExternalLoadBalancer(args, selectedPhysicalNetworkObj, "addF5LoadBalancer", "addf5bigiploadbalancerresponse");
                                 }
                                 else if (result.jobstatus == 2) {
-                                  alert("addNetworkServiceProvider&name=F5BigIp failed. Error: " + fromdb(result.jobresult.errortext));
+                                  alert("addNetworkServiceProvider&name=F5BigIp failed. Error: " + _s(result.jobresult.errortext));
                                 }
                               }
                             },
@@ -2868,7 +3019,7 @@
                                   addExternalFirewall(args, selectedPhysicalNetworkObj, "addSrxFirewall", "addsrxfirewallresponse", "srxfirewall");
                                 }
                                 else if (result.jobstatus == 2) {
-                                  alert("addNetworkServiceProvider&name=JuniperSRX failed. Error: " + fromdb(result.jobresult.errortext));
+                                  alert("addNetworkServiceProvider&name=JuniperSRX failed. Error: " + _s(result.jobresult.errortext));
                                 }
                               }
                             },
@@ -3278,7 +3429,7 @@
                 }
               },
 
-              'delete': {
+              'remove': {
                 label: 'label.action.delete.zone',
                 messages: {
                   confirm: function(args) {
@@ -3410,7 +3561,7 @@
                   custom: cloudStack.uiCustom.systemChart('compute')
                 },
                 network: {
-                  title: 'label.network',
+                  title: 'label.physical.network',
                   custom: cloudStack.uiCustom.systemChart('network')
                 },
                 resources: {
@@ -3870,7 +4021,7 @@
                                 addExternalLoadBalancer(args, selectedPhysicalNetworkObj, "addNetscalerLoadBalancer", "addnetscalerloadbalancerresponse", "netscalerloadbalancer");
                               }
                               else if (result.jobstatus == 2) {
-                                alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + fromdb(result.jobresult.errortext));
+                                alert("addNetworkServiceProvider&name=Netscaler failed. Error: " + _s(result.jobresult.errortext));
                               }
                             }
                           },
@@ -4053,7 +4204,7 @@
                                 addExternalLoadBalancer(args, selectedPhysicalNetworkObj, "addF5LoadBalancer", "addf5bigiploadbalancerresponse", "f5loadbalancer");
                               }
                               else if (result.jobstatus == 2) {
-                                alert("addNetworkServiceProvider&name=F5BigIp failed. Error: " + fromdb(result.jobresult.errortext));
+                                alert("addNetworkServiceProvider&name=F5BigIp failed. Error: " + _s(result.jobresult.errortext));
                               }
                             }
                           },
@@ -4258,7 +4409,7 @@
                                 addExternalFirewall(args, selectedPhysicalNetworkObj, "addSrxFirewall", "addsrxfirewallresponse", "srxfirewall");
                               }
                               else if (result.jobstatus == 2) {
-                                alert("addNetworkServiceProvider&name=JuniperSRX failed. Error: " + fromdb(result.jobresult.errortext));
+                                alert("addNetworkServiceProvider&name=JuniperSRX failed. Error: " + _s(result.jobresult.errortext));
                               }
                             }
                           },
@@ -4575,7 +4726,7 @@
                 }
               },
 
-              'delete': {
+              'remove': {
                 label: 'label.delete' , 
                 messages: {
                   confirm: function(args) {
@@ -5008,7 +5159,7 @@
                 }
               },
 
-              'delete': {
+              'remove': {
                 label: 'label.action.delete.cluster' , 
                 messages: {
                   confirm: function(args) {
@@ -5555,12 +5706,9 @@
                 }
               },
 
-              'delete': {  
+              'remove': {  
                 label: 'label.action.remove.host' ,
                 messages: {
-                  confirm: function(args) {
-                    return 'message.action.remove.host';
-                  },                 
                   notification: function(args) {
                     return 'label.action.remove.host';
                   }
@@ -5572,6 +5720,7 @@
                 },
                 createForm: {
                   title: 'label.action.remove.host',
+                  desc: 'message.action.remove.host',
                   fields: {
                     isForced: {
                       label: 'force.remove',
@@ -5651,7 +5800,36 @@
                   });
                 }
 
-              }
+              },
+														
+							stats: {
+								title: 'label.statistics',
+								fields: {
+									totalCPU: { label: 'label.total.cpu' },
+									cpuused: { label: 'label.cpu.utilized' },									
+									cpuallocated: { label: 'label.cpu.allocated.for.VMs' },
+									memorytotal: { label: 'label.memory.total' },
+									memoryallocated: { label: 'label.memory.allocated' },
+									memoryused: { label: 'label.memory.used' },	
+									networkkbsread: { label: 'label.network.read' },
+									networkkbswrite: { label: 'label.network.write' }
+								},
+								dataProvider: function(args) {								  
+									var jsonObj = args.context.hosts[0];
+									args.response.success({
+										data: {
+											totalCPU: jsonObj.cpunumber + " x " + cloudStack.converters.convertHz(jsonObj.cpuspeed),
+											cpuused: jsonObj.cpuused,				
+											cpuallocated: (jsonObj.cpuallocated == null || jsonObj.cpuallocated == 0)? "N/A": jsonObj.cpuallocated,
+											memorytotal: (jsonObj.memorytotal == null || jsonObj.memorytotal == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.memorytotal * 1024),
+											memoryallocated: (jsonObj.memoryallocated == null || jsonObj.memoryallocated == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.memoryallocated * 1024),
+											memoryused: (jsonObj.memoryused == null || jsonObj.memoryused == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.memoryused * 1024),												
+											networkkbsread: (jsonObj.networkkbsread == null || jsonObj.networkkbsread == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.networkkbsread * 1024),
+											networkkbswrite: (jsonObj.networkkbswrite == null || jsonObj.networkkbswrite == 0)? "N/A": cloudStack.converters.convertBytes(jsonObj.networkkbswrite * 1024)
+										}
+									});
+								}
+							}														
             }
           }
         }
@@ -6236,7 +6414,7 @@
                 }
               },
 
-              'delete': {
+              'remove': {
                 label: 'label.action.delete.primary.storage' ,  
                 messages: {
                   confirm: function(args) {
@@ -6424,7 +6602,7 @@
           detailView: {
             name: 'Secondary storage details',
             actions: {
-              destroy: {
+              remove: {
                 label: 'label.action.delete.secondary.storage' ,  
                 messages: {
                   confirm: function(args) {
@@ -6508,23 +6686,23 @@
                 }
               },
               action: function(args) {		                
-								var array2 = [];
-								array2.push("&startip=" + args.data.guestStartIp);
-								var endip = args.data.guestEndIp;
-								if(endip != null && endip.length > 0)
-									array2.push("&endip=" + endip);
-								$.ajax({
-									url: createURL("createVlanIpRange&forVirtualNetwork=false&networkid=" + args.context.networks[0].id + array2.join("")),
-									dataType: "json",
-									success: function(json) {
-										var item = json.createvlaniprangeresponse.vlan;
-										args.response.success({data:item});
-									},
-									error: function(XMLHttpResponse) {
-										var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
-										args.response.error(errorMsg);
-									}
-								});                
+                var array2 = [];
+                array2.push("&startip=" + args.data.guestStartIp);
+                var endip = args.data.guestEndIp;
+                if(endip != null && endip.length > 0)
+                  array2.push("&endip=" + endip);
+                $.ajax({
+                  url: createURL("createVlanIpRange&forVirtualNetwork=false&networkid=" + args.context.networks[0].id + array2.join("")),
+                  dataType: "json",
+                  success: function(json) {
+                    var item = json.createvlaniprangeresponse.vlan;
+                    args.response.success({data:item});
+                  },
+                  error: function(XMLHttpResponse) {
+                    var errorMsg = parseXMLHttpResponse(XMLHttpResponse);
+                    args.response.error(errorMsg);
+                  }
+                });                
               },
               notification: {
                 poll: function(args) {
@@ -6538,7 +6716,7 @@
               }
             },
 
-            'delete': {
+            'remove': {
               label: 'label.remove.ip.range' , 
               messages: {
                 confirm: function(args) {
@@ -6555,6 +6733,9 @@
                   async: true,
                   success: function(json) {
                     args.response.success({data:{}});
+                  },
+                  error: function(json) {
+                    args.response.error(parseXMLHttpResponse(XMLHttpResponse));
                   }
                 });
               },
@@ -7011,7 +7192,7 @@
 																																});
 																															}
 																															else if (result.jobstatus == 2) {
-																																alert("failed to enable security group provider. Error: " + fromdb(result.jobresult.errortext));
+																																alert("failed to enable security group provider. Error: " + _s(result.jobresult.errortext));
 																															}
 																														}
 																													},
@@ -7092,7 +7273,7 @@
 																							}																																		  
 																						}
 																						else if (result.jobstatus == 2) {
-																							alert("failed to enable Virtual Router Provider. Error: " + fromdb(result.jobresult.errortext));
+																							alert("failed to enable Virtual Router Provider. Error: " + _s(result.jobresult.errortext));
 																						}
 																					}
 																				},
@@ -7106,7 +7287,7 @@
 																});
 															}
 															else if (result.jobstatus == 2) {
-																alert("configureVirtualRouterElement failed. Error: " + fromdb(result.jobresult.errortext));
+																alert("configureVirtualRouterElement failed. Error: " + _s(result.jobresult.errortext));
 															}
 														}
 													},
@@ -7120,7 +7301,7 @@
 									});
 								}
 								else if (result.jobstatus == 2) {
-									alert("updatePhysicalNetwork failed. Error: " + fromdb(result.jobresult.errortext));
+									alert("updatePhysicalNetwork failed. Error: " + _s(result.jobresult.errortext));
 								}
 							}
 						},
@@ -7143,7 +7324,7 @@
       allowedActions.push("enable");
     else if(jsonObj.allocationstate == "Enabled")
       allowedActions.push("disable");
-    allowedActions.push("delete");
+    allowedActions.push("remove");
     return allowedActions;
   }
 
@@ -7155,7 +7336,7 @@
       allowedActions.push("enable");
     else if(podObj.allocationstate == "Enabled")
       allowedActions.push("disable");
-    allowedActions.push("delete");
+    allowedActions.push("remove");
 
     /*
     var selectedZoneObj;
@@ -7201,7 +7382,7 @@
 			allowedActions.push("manage");
 		}
 
-    allowedActions.push("delete");
+    allowedActions.push("remove");
 
     return allowedActions;
   }
@@ -7227,12 +7408,17 @@
     else if (jsonObj.resourcestate == "Maintenance") {
       allowedActions.push("edit");
       allowedActions.push("cancelMaintenanceMode");
-      allowedActions.push("delete");
+      allowedActions.push("remove");
     }
     else if (jsonObj.resourcestate == "Disabled"){
       allowedActions.push("edit");
-      allowedActions.push("delete");
+      allowedActions.push("remove");
     }
+		
+		if((jsonObj.state == "Down" || jsonObj.state == "Alert" || jsonObj.state == "Disconnected") && ($.inArray("remove", allowedActions) == -1)) {	      	  
+		  allowedActions.push("remove");
+		}
+		
     return allowedActions;
   }
 
@@ -7247,10 +7433,10 @@
     }
     else if(jsonObj.state == 'Down') {
       allowedActions.push("enableMaintenanceMode");
-      allowedActions.push("delete");
+      allowedActions.push("remove");
     }
     else if(jsonObj.state == "Alert") {
-      allowedActions.push("delete");
+      allowedActions.push("remove");
     }
     else if (jsonObj.state == "ErrorInMaintenance") {
       allowedActions.push("enableMaintenanceMode");
@@ -7261,10 +7447,10 @@
     }
     else if (jsonObj.state == "Maintenance") {
       allowedActions.push("cancelMaintenanceMode");
-      allowedActions.push("delete");
+      allowedActions.push("remove");
     }
     else if (jsonObj.state == "Disconnected"){
-      allowedActions.push("delete");
+      allowedActions.push("remove");
     }
     return allowedActions;
   }
@@ -7272,26 +7458,10 @@
   var secondarystorageActionfilter = function(args) {
     var jsonObj = args.context.item;
     var allowedActions = [];
-    allowedActions.push("destroy");
+    allowedActions.push("remove");
     return allowedActions;
   }
-
-  var publicNetworkActionfilter = function(args) {
-    var jsonObj = args.context.item;
-    var allowedActions = [];
-    allowedActions.push("addIpRange");
-    return allowedActions;
-  }
-
-  var directNetworkActionfilter = function(args) {
-    var jsonObj = args.context.item;
-    var allowedActions = [];
-    allowedActions.push("addIpRange");
-    allowedActions.push("edit");
-    allowedActions.push("delete");
-    return allowedActions;
-  }
-
+  
   var routerActionfilter = function(args) {
     var jsonObj = args.context.item;
     var allowedActions = [];

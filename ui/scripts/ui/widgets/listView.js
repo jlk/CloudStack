@@ -1,7 +1,7 @@
 /**
  * Create dynamic list view based on data callbacks
  */
-(function($, cloudStack, _l) {
+(function($, cloudStack, _l, _s) {
   var uiActions = {
     standard: function($instanceRow, args, additional) {
       var listViewArgs = $instanceRow.closest('div.list-view').data('view-args');
@@ -329,6 +329,15 @@
         }
       }
     },
+				
+		remove: function($instanceRow, args) {	
+		  uiActions.standard($instanceRow, args, { 
+        complete: function(args, $newRow) {     
+					$newRow.remove();										
+        }
+      });
+    },
+				
     edit: function($instanceRow, args) {
       var $td = $instanceRow.find('td.editable');
       var $edit = $td.find('div.edit');
@@ -352,7 +361,7 @@
         if (!options) options = {};
 
         var oldVal = $label.html();
-        $label.html(val);
+        $label.html(_s(val));
 
         var data = {
           id: $instanceRow.data('list-view-item-id'),
@@ -381,7 +390,7 @@
               if (message) {
                 cloudStack.dialog.notice({ message: message });
                 $edit.hide(),
-                $label.html(oldVal).fadeIn();
+                $label.html(_s(oldVal)).fadeIn();
                 $instanceRow.closest('div.data-table').dataTable('refresh');
 
                 if (options.error) options.error(args);
@@ -412,7 +421,7 @@
                   _l('Set value of') +
                   ' ' + $instanceRow.find('td.name span').html() +
                   ' ' + _l('to') +
-                  ' ' + newName :
+                  ' ' + _s(newName) :
                   _l('Unset value for') +
                   ' ' + $instanceRow.find('td.name span').html()
               },
@@ -494,13 +503,13 @@
     $td.addClass('editable');
 
     // Put <td> label into a span
-    var value = $td.html();
-    $('<span></span>').html(value).appendTo($td.html(''));
+    var sanitizedValue = $td.html();			
+    $('<span></span>').html(sanitizedValue).appendTo($td.html(''));
 
     var $editArea = $('<div></div>').addClass('edit');
     var $editField = $('<input />').addClass('edit').attr({
       type: 'text',
-      value: value
+      value: cloudStack.sanitizeReverse(sanitizedValue)
     });
     var $actionButton = $('<div></div>').addClass('action');
     var $saveButton = $actionButton.clone().addClass('save').attr({
@@ -526,15 +535,21 @@
     ).length;
   };
 
-  var createHeader = function(fields, $table, actions, options) {
+  var createHeader = function(preFilter, fields, $table, actions, options) {
     if (!options) options = {};
 
     var $thead = $('<thead>').prependTo($table).append($('<tr>'));
     var reorder = options.reorder;
 
-    $.each(fields, function(key) {
+	var hiddenFields = [];
+	if(preFilter != null) 
+		hiddenFields = preFilter();
+		
+    $.each(fields, function(key) {	
+	  if($.inArray(key, hiddenFields) != -1)		
+		return true;			
       var field = this;
-      var $th = $('<th>').appendTo($thead.find('tr'));
+      var $th = $('<th>').addClass(key).appendTo($thead.find('tr'));
 
       if ($th.index()) $th.addClass('reduced-hide');
 
@@ -702,7 +717,7 @@
     $detailsPanel = data.$browser.cloudBrowser('addPanel', panelArgs);
   };
 
-  var addTableRows = function(fields, data, $tbody, actions, options) {
+  var addTableRows = function(preFilter, fields, data, $tbody, actions, options) {
     if (!options) options = {};
     var rows = [];
     var reorder = options.reorder;
@@ -734,9 +749,15 @@
         $tr.appendTo($tbody);
       }
 
+      var hiddenFields = [];
+  	  if(preFilter != null) 
+  		hiddenFields = preFilter();
+      
       // Add field data
-      $.each(fields, function(key) {
-        var field = this;
+      $.each(fields, function(key) {   
+        if($.inArray(key, hiddenFields) != -1)	
+		  return true;
+		var field = this;
         var $td = $('<td>')
               .addClass(key)
               .data('list-view-item-field', key)
@@ -754,15 +775,15 @@
         if (field.converter) {
           content = _l(field.converter(content, dataItem));
         }
-
-        $td.html(content);
-
-        if (field.editable) createEditField($td).appendTo($td);
-        else {
-          var origValue = $td.html();
+				
+        if (field.editable) { 
+				  $td.html(_s(content));
+				  createEditField($td).appendTo($td);
+			  }
+        else {          
           $td.html('');
           $td.append(
-            $('<span></span>').html(origValue)
+            $('<span></span>').html(_s(content))
           );
         }
       });
@@ -912,7 +933,7 @@
     });
   };
 
-  var loadBody = function($table, dataProvider, fields, append, loadArgs, actions, options) {
+  var loadBody = function($table, dataProvider, preFilter, fields, append, loadArgs, actions, options) {
     if (!options) options = {};
     var context = options.context;
     var reorder = options.reorder;
@@ -941,8 +962,8 @@
         response: {
           success: function(args) {
             setLoadingArgs.loadingCompleted();
-
-            addTableRows(fields, args.data, $tbody, actions, {
+            
+            addTableRows(preFilter, fields, args.data, $tbody, actions, {
               actionFilter: args.actionFilter,
               context: context,
               reorder: reorder
@@ -954,8 +975,8 @@
             });
           },
           error: function(args) {
-            setLoadingArgs.loadingCompleted();
-            addTableRows(fields, [], $tbody, actions);
+            setLoadingArgs.loadingCompleted();            
+            addTableRows(preFilter, fields, [], $tbody, actions);
             $table.find('td:first').html(_l('ERROR'));
             $table.dataTable(null, { noSelect: uiCustom });
           }
@@ -1147,16 +1168,18 @@
 
     $('<tbody>').appendTo($table);
 
-    createHeader(listViewData.fields,
+    createHeader(listViewData.preFilter,
+    		     listViewData.fields,
                  $table,
                  listViewData.actions,
                  { reorder: reorder });
     createFilters($toolbar, listViewData.filters);
     createSearchBar($toolbar);
-
+    
     loadBody(
       $table,
       listViewData.dataProvider,
+      listViewData.preFilter,
       listViewData.fields,
       false,
       {
@@ -1201,10 +1224,11 @@
       return true;
     });
 
-    var search = function() {
+    var search = function() {    	
       loadBody(
-        $table,
+        $table,        
         listViewData.dataProvider,
+        listViewData.preFilter,
         listViewData.fields,
         false,
         {
@@ -1256,8 +1280,7 @@
 
         if (loadMoreData) {
           page = page + 1;
-
-          loadBody($table, listViewData.dataProvider, listViewData.fields, true, {
+          loadBody($table, listViewData.dataProvider, listViewData.preFilter, listViewData.fields, true, {
             context: context,
             page: page,
             filterBy: {
@@ -1298,6 +1321,9 @@
 
       // Click on first item will trigger detail view (if present)
       if (detailViewPresent && !uiCustom && !$target.closest('.empty, .loading').size()) {
+			  var $loading = $('<div>').addClass('loading-overlay');
+        $target.closest('div.data-table').prepend($loading); //overlay the whole listView, so users can't click another row until click-handling for this row is done (e.g. API response is back)
+			
         listViewData.detailView.$browser = args.$browser;
         detailViewArgs = {
           $panel: $target.closest('div.panel'),
@@ -1333,9 +1359,14 @@
           });
         }
 
-        createDetailView(detailViewArgs, function($detailView) {
-          $detailView.data('list-view', $listView);
-        }, $target.closest('tr'));
+        createDetailView(
+				  detailViewArgs, 
+					function($detailView) { //complete(), callback funcion
+						$detailView.data('list-view', $listView);
+						$loading.remove();
+					}, 
+					$target.closest('tr')
+				);
 
         return false;
       }
@@ -1408,8 +1439,8 @@
       listViewArgs.activeSection
     ].listView : listViewArgs;
     var reorder = targetArgs.reorder;
-
     var $tr = addTableRows(
+      targetArgs.preFilter,
       targetArgs.fields,
       data,
       listView.find('table tbody'),
@@ -1441,6 +1472,7 @@
     var defaultActionFilter = $row.data('list-view-action-filter');
 
     $newRow = addTableRows(
+      targetArgs.preFilter,
       targetArgs.fields,
       data,
       $listView.find('table tbody'),
@@ -1482,6 +1514,7 @@
       loadBody(
         this.find('table:last'),
         listViewArgs.dataProvider,
+        listViewArgs.preFilter,
         listViewArgs.fields,
         false,
         null,
@@ -1511,4 +1544,4 @@
       $listView.listView('refresh');
     });
   });
-})(jQuery, cloudStack, _l);
+})(window.jQuery, window.cloudStack, window._l, window._s);

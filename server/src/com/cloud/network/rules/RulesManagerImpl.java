@@ -70,6 +70,7 @@ import com.cloud.utils.db.SearchCriteria.Op;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.net.Ip;
+import com.cloud.utils.AnnotationHelper;
 import com.cloud.vm.Nic;
 import com.cloud.vm.UserVmVO;
 import com.cloud.vm.VirtualMachine;
@@ -1029,12 +1030,16 @@ public class RulesManagerImpl implements RulesManager, RulesService, Manager {
         checkIpAndUserVm(ipAddress, null, caller);
 
         if (ipAddress.getSystem()) {
-            throw new InvalidParameterValueException("Can't disable static nat for system IP address " + ipAddress);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Can't disable static nat for system IP address with specified id");
+        	ex.addProxyObject(ipAddress, ipId, "ipId");            
+            throw ex;
         }
 
         Long vmId = ipAddress.getAssociatedWithVmId();
         if (vmId == null) {
-            throw new InvalidParameterValueException("IP address " + ipAddress + " is not associated with any vm Id");
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Specified IP address id is not associated with any vm Id");
+        	ex.addProxyObject(ipAddress, ipId, "ipId");            
+            throw ex;
         }
 
         // if network has elastic IP functionality supported, we first have to disable static nat on old ip in order to
@@ -1059,7 +1064,9 @@ public class RulesManagerImpl implements RulesManager, RulesService, Manager {
         checkIpAndUserVm(ipAddress, null, caller);
 
         if (!ipAddress.isOneToOneNat()) {
-            throw new InvalidParameterValueException("One to one nat is not enabled for the ip id=" + ipId);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("One to one nat is not enabled for the specified ip id");
+        	ex.addProxyObject(ipAddress, ipId, "ipId");            
+            throw ex;
         }
 
         // Revoke all firewall rules for the ip
@@ -1117,7 +1124,9 @@ public class RulesManagerImpl implements RulesManager, RulesService, Manager {
         FirewallRuleVO ruleVO = _firewallDao.findById(rule.getId());
 
         if (ip == null || !ip.isOneToOneNat() || ip.getAssociatedWithVmId() == null) {
-            throw new InvalidParameterValueException("Source ip address of the rule id=" + rule.getId() + " is not static nat enabled");
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Source ip address of the specified firewall rule id is not static nat enabled");
+        	ex.addProxyObject(ruleVO, rule.getId(), "ruleId");
+            throw ex;
         }
         
         String dstIp;
@@ -1149,7 +1158,9 @@ public class RulesManagerImpl implements RulesManager, RulesService, Manager {
         UserVmVO vm = _vmDao.findById(sourceIp.getAssociatedWithVmId());
         Network network = _networkMgr.getNetwork(networkId);
         if (network == null) {
-            throw new CloudRuntimeException("Unable to find ip address to map to in vm id=" + vm.getId());
+        	CloudRuntimeException ex = new CloudRuntimeException("Unable to find an ip address to map to specified vm id");
+        	ex.addProxyObject(vm, vm.getId(), "vmId");            
+            throw ex;
         }
 
         if (caller != null) {
@@ -1201,7 +1212,7 @@ public class RulesManagerImpl implements RulesManager, RulesService, Manager {
                 s_logger.debug("Allocating system ip and enabling static nat for it for the vm " + vm + " in guest network " + guestNetwork);
                 IpAddress ip = _networkMgr.assignSystemIp(guestNetwork.getId(), _accountMgr.getAccount(vm.getAccountId()), false, true);
                 if (ip == null) {
-                    throw new CloudRuntimeException("Failed to allocate system ip for vm " + vm + " in guest network " + guestNetwork);
+                    throw new CloudRuntimeException("Failed to allocate system ip for vm " + vm + " in guest network " + guestNetwork);                    
                 }
 
                 s_logger.debug("Allocated system ip " + ip + ", now enabling static nat on it for vm " + vm);

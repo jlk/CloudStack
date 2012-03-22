@@ -275,10 +275,14 @@
       var $inputs = $detailView.find('input, select');
       var action = args.actions[args.actionName];
       var id = $detailView.data('view-args').id;
-      var $editButton = $('<div>').addClass('button done').html(_l('label.apply')).hide()
-            .appendTo(
-              $detailView.find('.ui-tabs-panel .detail-group.actions')              
-            ).fadeIn();
+      var $editButton = $('<div>').addClass('button done').html(_l('label.apply')).hide();
+      var $cancelButton = $('<div>').addClass('button cancel').html(_l('label.cancel')).hide();
+
+      // Show buttons
+      $.merge($editButton, $cancelButton)
+        .appendTo(
+          $detailView.find('.ui-tabs-panel .detail-group.actions')              
+        ).fadeIn();
 
       var convertInputs = function($inputs) {
         // Save and turn back into labels
@@ -287,22 +291,37 @@
           var $value = $input.closest('td.value');
 
           if ($input.is('input[type=text]'))
-            $value.html(
+            $value.html(_s(
               $input.attr('value')
-            );
+            ));
           else if ($input.is('input[type=checkbox]')) {
             var val = $input.is(':checked');
             
-            $value.data('detail-view-boolean-value', val);
-            $value.html(val ? _l('label.yes') : _l('label.no')); 
+            $value.data('detail-view-boolean-value', _s(val));
+            $value.html(_s(val) ? _l('label.yes') : _l('label.no'));
           }
           else if ($input.is('select')) {
-            $value.html(
+            $value.html(_s(
               $input.find('option:selected').html()
-            );
-            $value.data('detail-view-selected-option', $input.find('option:selected').val());
+            ));
+            $value.data('detail-view-selected-option', _s($input.find('option:selected').val()));
           }
         });
+      };
+
+      // Put in original values
+      var cancelEdits = function($inputs, $editButton) {
+        $inputs.each(function() {
+          var $input = $(this);
+          var $value = $input.closest('td.value');
+          var originalValue = $input.data('original-value');
+
+          $value.html(_s(originalValue));
+        }); 
+
+        $editButton.fadeOut('fast', function() {
+          $editButton.remove();
+        });  
       };
 
       var applyEdits = function($inputs, $editButton) {
@@ -362,15 +381,7 @@
                 }
               },
               error: function(message) {
-                // Put in original values on error
-                $inputs.each(function() {
-                  var $input = $(this);
-                  var $value = $input.closest('td.value');
-                  var originalValue = $input.data('original-value');
-
-                  $value.html(originalValue);
-                });
-
+                cancelEdits($inputs, $editButton);
                 if (message) cloudStack.dialog.notice({ message: message });
               }
             }
@@ -380,7 +391,12 @@
 
       $editButton.click(function() {
         var $inputs = $detailView.find('input, select');
-        applyEdits($inputs, $editButton);
+
+        if ($(this).hasClass('done')) {
+          applyEdits($inputs, $editButton);
+        } else { // Cancel
+          cancelEdits($inputs, $editButton);
+        }
       });
 
       $detailView.find('td.value').each(function() {
@@ -391,7 +407,7 @@
         // Turn into form field
         var selectData = $value.data('detail-view-editable-select');
         var isBoolean = $value.data('detail-view-editable-boolean');
-        var data = !isBoolean ? $value.html() : $value.data('detail-view-boolean-value');
+        var data = !isBoolean ? cloudStack.sanitizeReverse($value.html()) : $value.data('detail-view-boolean-value');
 
         $value.html('');
 
@@ -411,9 +427,9 @@
           $(selectData).each(function() {
             $('<option>')
               .attr({
-                value: this.id
+                value: _s(this.id)
               })
-              .html(this.description)
+              .html(_s(this.description))
               .appendTo($value.find('select'));
           });
 
@@ -632,7 +648,7 @@
       $.each(fieldGroup, function(key, value) {
         if (hiddenFields && $.inArray(key, hiddenFields) >= 0) return true;
         if ($header && key == args.header) {
-          $header.find('th').html(data[key]);
+          $header.find('th').html(_s(data[key]));
           return true;
         }
 
@@ -654,7 +670,7 @@
         }
 
         $name.html(_l(value.label));
-        $value.html(content);
+        $value.html(_s(content));
 
         // Set up editable metadata
         $value.data('detail-view-is-editable', value.isEditable);
@@ -671,7 +687,7 @@
                 })[0];
 
                 if(matchedSelectValue != null) {
-                  $value.html(matchedSelectValue.description);
+                  $value.html(_s(matchedSelectValue.description));
                   $value.data('detail-view-selected-option', matchedSelectValue.id);
                 }
 
@@ -796,9 +812,6 @@
           var tabData = $tabContent.data('detail-view-tab-data');
           var data = args.data;
 										
-					if($detailView.data('list-view-row') != null)
-					  $detailView.data('list-view-row').data('json-obj', data); //refresh embedded data in corresponding list view row
-					
           var isFirstPanel = $tabContent.index($detailView.find('div.detail-group.ui-tabs-panel')) == 0;
           var actionFilter = args.actionFilter;
 

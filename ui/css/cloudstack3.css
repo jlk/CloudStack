@@ -1374,7 +1374,8 @@ div.list-view td.state.off span {
   padding: 20px 0px 17px;
 }
 
-.detail-view .button.done {
+.detail-view .button.done,
+.detail-view .button.cancel {
   display: inline-block;
   color: #FFFFFF;
   font-size: 12px;
@@ -1405,6 +1406,17 @@ div.list-view td.state.off span {
   position: absolute;
 }
 
+.detail-view .button.cancel {
+  background-position: 0px -795px;
+  left: 85px;
+  color: gray;
+  /*+text-shadow:0px -1px 2px #000000;*/
+  -moz-text-shadow: 0px -1px 2px #CCCCCC;
+  -webkit-text-shadow: 0px -1px 2px #CCCCCC;
+  -o-text-shadow: 0px -1px 2px #CCCCCC;
+  text-shadow: 0px -1px 2px #CCCCCC; 
+}
+
 .detail-view .button.done:hover {
   background-position: 0px -950px;
   /*+box-shadow:inset 0px 1px 3px #000000;*/
@@ -1412,6 +1424,10 @@ div.list-view td.state.off span {
   -webkit-box-shadow: inset 0px 1px 3px #000000;
   -o-box-shadow: inset 0px 1px 3px #000000;
   box-shadow: inset 0px 1px 3px #000000;
+}
+
+.detail-view .button.cancel:hover {
+  background-position: 0px -834px;
 }
 
 div.group-multiple div.detail-group table {
@@ -3981,7 +3997,7 @@ Dialogs*/
 }
 
 .system-chart.dashboard.admin .dashboard-container .stats .chart {
-  width: 242px;
+  width: 216px;
 }
 
 /** Compute*/
@@ -5655,7 +5671,7 @@ label.error {
 .multi-wizard.zone-wizard .select-container.multi .drop-container {
   background: #DAE2EC;
   width: 484px;
-  height: 65px;
+  height: 100px;
   clear: both;
   position: relative;
   /*+border-radius:4px;*/
@@ -5686,7 +5702,7 @@ label.error {
 
 .multi-wizard.zone-wizard .select-container.multi .drop-container ul li {
   float: left;
-  margin: 0px 0 0 16px;
+  margin: 2px 17px 0 29px;
 }
 
 .multi-wizard.zone-wizard .select-container.multi .drop-container span.empty-message {
@@ -5754,9 +5770,12 @@ label.error {
   margin: 16px 13px 0 0;
 }
 
-.multi-wizard.zone-wizard .traffic-types-drag-area > ul > li.management,
-.multi-wizard.zone-wizard .traffic-types-drag-area > ul > li.public {
+.multi-wizard.zone-wizard .traffic-types-drag-area > ul > li.required {
   display: none;
+}
+
+.multi-wizard.zone-wizard .traffic-types-drag-area > ul > li.required.clone {
+  display: block;
 }
 
 .multi-wizard.zone-wizard .traffic-types-drag-area > ul > li ul.container {
@@ -5813,7 +5832,8 @@ label.error {
   position: relative;
   left: -8px;
   top: -6px;
-  margin-right: -16px;
+  margin-right: 0px;
+  width: 70px !important;
 }
 
 .multi-wizard.zone-wizard li.traffic-type-draggable.disabled {
@@ -5836,7 +5856,7 @@ label.error {
 }
 
 .multi-wizard.zone-wizard .select-container.multi li.traffic-type-draggable.management:hover {
-  margin-right: -18px;
+  margin-right: -1px;
 }
 
 .multi-wizard.zone-wizard li.traffic-type-draggable.public {
@@ -5883,6 +5903,75 @@ label.error {
 
 .multi-wizard.zone-wizard .traffic-types-drag-area > ul > li .info .desc {
   display: none;
+}
+
+/*** Traffic type icon -- edit button*/
+.multi-wizard.zone-wizard .traffic-type-draggable .edit-traffic-type {
+  display: none;
+}
+
+.multi-wizard.zone-wizard .drop-container .traffic-type-draggable > .edit-traffic-type {
+  cursor: pointer;
+  display: block;
+  width: 59px;
+  height: 23px;
+  padding: 2px 9px 0 12px;
+  background: url(../images/bg-gradients.png) 0px 53px;
+  border: 1px solid #C4C4C4;
+  /*+border-radius:4px;*/
+  -moz-border-radius: 4px;
+  -webkit-border-radius: 4px;
+  -khtml-border-radius: 4px;
+  border-radius: 4px 4px 4px 4px;
+  border-top: 1px solid #FFFFFF;
+  /*+placement:shift -15px 61px;*/
+  position: relative;
+  left: -15px;
+  top: 61px;
+}
+
+.multi-wizard.zone-wizard .drop-container .traffic-type-draggable > .edit-traffic-type:hover {
+  background-position: 0px -105px;
+  color: #FFFFFF;
+  /*+box-shadow:inset 0px 2px 1px #727272;*/
+  -moz-box-shadow: inset 0px 2px 1px #727272;
+  -webkit-box-shadow: inset 0px 2px 1px #727272;
+  -o-box-shadow: inset 0px 2px 1px #727272;
+  box-shadow: inset 0px 2px 1px #727272;
+}
+
+.multi-wizard.zone-wizard .drop-container .traffic-type-draggable > .edit-traffic-type:hover span {
+  color: #FFFFFF;
+  /*+text-shadow:0px 1px 1px #000000;*/
+  -moz-text-shadow: 0px 1px 1px #000000;
+  -webkit-text-shadow: 0px 1px 1px #000000;
+  -o-text-shadow: 0px 1px 1px #000000;
+  text-shadow: 0px 1px 1px #000000;
+}
+
+.multi-wizard.zone-wizard .drop-container .traffic-type-draggable:hover > .edit-traffic-type {
+  /*+placement:shift -7px 67px;*/
+  position: relative;
+  left: -7px;
+  top: 67px;
+}
+
+.multi-wizard.zone-wizard .drop-container .traffic-type-draggable .edit-traffic-type span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: #4E73A6;
+  /*+text-shadow:0px 1px #FFFFFF;*/
+  -moz-text-shadow: 0px 1px #FFFFFF;
+  -webkit-text-shadow: 0px 1px #FFFFFF;
+  -o-text-shadow: 0px 1px #FFFFFF;
+  text-shadow: 0px 1px #FFFFFF;
+}
+
+.multi-wizard.zone-wizard .drop-container .traffic-type-draggable .edit-traffic-type span.icon {
+  float: left;
+  background: url(../images/sprites.png) -7px -4px;
+  padding: 7px 11px 0 7px;
 }
 
 /*** Configure guest network -- tabs*/
@@ -6387,7 +6476,7 @@ div.panel.ui-dialog div.list-view div.fixed-header {
   background: url(../images/bg-gradients.png) 0px -271px;
   border: 1px solid #B7B7B7;
   color: #485867;
-  font-size: 11px;
+  font-size: 10px;
   /*+text-shadow:0px 1px #FFFFFF;*/
   -moz-text-shadow: 0px 1px #FFFFFF;
   -webkit-text-shadow: 0px 1px #FFFFFF;
@@ -6493,6 +6582,16 @@ div.panel.ui-dialog div.list-view div.fixed-header {
 .multi-edit .data .data-body .data-item table tbody tr td.name span {
   color: #4C5D78;
   font-weight: bold;
+}
+
+.multi-edit .data .data-body .data-item .expandable-listing table tbody tr td.name span {
+  color: #4C5D78;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.multi-edit .data .data-body .data-item .expandable-listing table tbody tr td.name span:hover {
+  color: blue;
 }
 
 .multi-edit .data .data-body .data-item table tbody tr td.multi-actions {

@@ -106,6 +106,7 @@ import com.cloud.user.DomainManager;
 import com.cloud.user.User;
 import com.cloud.user.UserAccount;
 import com.cloud.user.UserContext;
+import com.cloud.user.UserVO;
 import com.cloud.utils.IdentityProxy;
 import com.cloud.utils.Pair;
 import com.cloud.utils.PropertiesUtil;
@@ -115,6 +116,8 @@ import com.cloud.utils.concurrency.NamedThreadFactory;
 import com.cloud.utils.db.SearchCriteria;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.encoding.Base64;
+import com.cloud.utils.exception.CSExceptionErrorCode;
+import com.cloud.uuididentity.dao.IdentityDao;
 
 public class ApiServer implements HttpRequestHandler {
     private static final Logger s_logger = Logger.getLogger(ApiServer.class.getName());
@@ -277,14 +280,16 @@ public class ApiServer implements HttpRequestHandler {
         _dispatcher = ApiDispatcher.getInstance();
         _domainMgr = locator.getManager(DomainManager.class);
 
-        int apiPort = 8096; // default port
+        Integer apiPort = null; // api port, null by default
         ConfigurationDao configDao = locator.getDao(ConfigurationDao.class);
         SearchCriteria<ConfigurationVO> sc = configDao.createSearchCriteria();
         sc.addAnd("name", SearchCriteria.Op.EQ, "integration.api.port");
         List<ConfigurationVO> values = configDao.search(sc, null);
         if ((values != null) && (values.size() > 0)) {
             ConfigurationVO apiPortConfig = values.get(0);
-            apiPort = Integer.parseInt(apiPortConfig.getValue());
+            if (apiPortConfig.getValue() != null) {
+                apiPort = Integer.parseInt(apiPortConfig.getValue());
+            }
         }
 
         encodeApiResponse = Boolean.valueOf(configDao.getValue(Config.EncodeApiResponse.key()));
@@ -294,8 +299,10 @@ public class ApiServer implements HttpRequestHandler {
             jsonContentType = jsonType;
         }
 
-        ListenerThread listenerThread = new ListenerThread(this, apiPort);
-        listenerThread.start();
+        if (apiPort != null) {
+            ListenerThread listenerThread = new ListenerThread(this, apiPort);
+            listenerThread.start();
+        }
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -429,7 +436,7 @@ public class ApiServer implements HttpRequestHandler {
         } catch (Exception ex) {
             if (ex instanceof InvalidParameterValueException) {
             	InvalidParameterValueException ref = (InvalidParameterValueException)ex;
-            	ServerApiException e = new ServerApiException(BaseCmd.PARAM_ERROR, ex.getMessage());
+            	ServerApiException e = new ServerApiException(BaseCmd.PARAM_ERROR, ex.getMessage());            	
                 // copy over the IdentityProxy information as well and throw the serverapiexception.
                 ArrayList<IdentityProxy> idList = ref.getIdProxyList();
                 if (idList != null) {
@@ -438,7 +445,9 @@ public class ApiServer implements HttpRequestHandler {
                 		IdentityProxy obj = idList.get(i);
                 		e.addProxyObject(obj.getTableName(), obj.getValue(), obj.getidFieldName());
                 	}
-                }                
+                }
+                // Also copy over the cserror code and the function/layer in which it was thrown.
+            	e.setCSErrorCode(ref.getCSErrorCode());
                 throw e;
             } else if (ex instanceof PermissionDeniedException) {
             	PermissionDeniedException ref = (PermissionDeniedException)ex;
@@ -452,12 +461,15 @@ public class ApiServer implements HttpRequestHandler {
                 		e.addProxyObject(obj.getTableName(), obj.getValue(), obj.getidFieldName());
                 	}
                 }
+                e.setCSErrorCode(ref.getCSErrorCode());
                 throw e;
             } else if (ex instanceof ServerApiException) {
                 throw (ServerApiException) ex;
             } else {
                 s_logger.error("unhandled exception executing api command: " + ((command == null) ? "null" : command[0]), ex);
-                throw new ServerApiException(BaseCmd.INTERNAL_ERROR, "Internal server error, unable to execute request.");
+                ServerApiException e = new ServerApiException(BaseCmd.INTERNAL_ERROR, "Internal server error, unable to execute request.");
+                e.setCSErrorCode(CSExceptionErrorCode.getCSErrCode("ServerApiException"));
+                throw e;
             }
         }
         return response;
@@ -756,6 +768,17 @@ public class ApiServer implements HttpRequestHandler {
         }
         return false;
     }
+    
+    public Long fetchDomainId(String domainUUID){
+        ComponentLocator locator = ComponentLocator.getLocator(ManagementServer.Name);
+        IdentityDao identityDao = locator.getDao(IdentityDao.class);
+        try{
+            Long domainId = identityDao.getIdentityId("domain", domainUUID);
+            return domainId;
+        }catch(InvalidParameterValueException ex){
+            return null;
+        }
+    }
 
     public void loginUser(HttpSession session, String username, String password, Long domainId, String domainPath, Map<String, Object[]> requestParameters) throws CloudAuthenticationException {
         // We will always use domainId first. If that does not exist, we will use domain name. If THAT doesn't exist
@@ -792,12 +815,23 @@ public class ApiServer implements HttpRequestHandler {
 
             // set the userId and account object for everyone
             session.setAttribute("userid", userAcct.getId());
+            UserVO user = (UserVO) _accountMgr.getActiveUser(userAcct.getId());
+            if(user.getUuid() != null){
+                session.setAttribute("user_UUID", user.getUuid());
+            }
+            
             session.setAttribute("username", userAcct.getUsername());
             session.setAttribute("firstname", userAcct.getFirstname());
             session.setAttribute("lastname", userAcct.getLastname());
             session.setAttribute("accountobj", account);
             session.setAttribute("account", account.getAccountName());
+            
             session.setAttribute("domainid", account.getDomainId());
+            DomainVO domain = (DomainVO) _domainMgr.getDomain(account.getDomainId());
+            if(domain.getUuid() != null){
+                session.setAttribute("domain_UUID", domain.getUuid());
+            }
+            
             session.setAttribute("type", Short.valueOf(account.getType()).toString());
             session.setAttribute("registrationtoken", userAcct.getRegistrationToken());
             session.setAttribute("registered", new Boolean(userAcct.isRegistered()).toString());
@@ -1034,6 +1068,8 @@ public class ApiServer implements HttpRequestHandler {
             					apiResponse.addProxyObject(id.getTableName(), id.getValue(), id.getidFieldName());
             				}            				
             			}
+            			// Also copy over the cserror code and the function/layer in which it was thrown.
+            			apiResponse.setCSErrorCode(ref.getCSErrorCode());
             		} else if (ex instanceof PermissionDeniedException) {
             			PermissionDeniedException ref = (PermissionDeniedException) ex;
             			ArrayList<IdentityProxy> idList = ref.getIdProxyList();
@@ -1043,6 +1079,8 @@ public class ApiServer implements HttpRequestHandler {
             					apiResponse.addProxyObject(id.getTableName(), id.getValue(), id.getidFieldName());
             				}            				
             			}
+            			// Also copy over the cserror code and the function/layer in which it was thrown.
+            			apiResponse.setCSErrorCode(ref.getCSErrorCode());
             		} else if (ex instanceof InvalidParameterValueException) {
             			InvalidParameterValueException ref = (InvalidParameterValueException) ex;
             			ArrayList<IdentityProxy> idList = ref.getIdProxyList();
@@ -1052,6 +1090,8 @@ public class ApiServer implements HttpRequestHandler {
             					apiResponse.addProxyObject(id.getTableName(), id.getValue(), id.getidFieldName());
             				}            				
             			}
+            			// Also copy over the cserror code and the function/layer in which it was thrown.
+            			apiResponse.setCSErrorCode(ref.getCSErrorCode());
             		}
             	}
             }

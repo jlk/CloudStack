@@ -508,7 +508,13 @@
                   <ul class="container">
                     <li traffic-type-id="management"
                         title="Traffic between CloudStack's internal resources, including any components that communicate with the Management Server, such as hosts and CloudStack system VMs"
-                        class="traffic-type-draggable management"></li>
+                        class="traffic-type-draggable management">
+                      <!-- Edit buttton -->
+                      <div class="edit-traffic-type">
+                        <span class="icon">&nbsp;</span>
+                        <span>Edit</span>
+                      </div>
+                    </li>
                   </ul>
                   <div class="info">
                     <div class="title"><fmt:message key="label.management"/></div>
@@ -519,7 +525,13 @@
                   <ul class="container">
                     <li traffic-type-id="public"
                         title="Traffic between the internet and virtual machines in the cloud."
-                        class="traffic-type-draggable public"></li>
+                        class="traffic-type-draggable public">
+                      <!-- Edit buttton -->
+                      <div class="edit-traffic-type">
+                        <span class="icon">&nbsp;</span>
+                        <span>Edit</span>
+                      </div>
+                    </li>
                   </ul>
                   <div class="info">
                     <div class="title"><fmt:message key="label.public"/></div>
@@ -530,7 +542,13 @@
                   <ul class="container">
                     <li traffic-type-id="guest"
                         title="Traffic between end-user virtual machines"
-                        class="traffic-type-draggable guest clone"></li>
+                        class="traffic-type-draggable guest">
+                      <!-- Edit buttton -->
+                      <div class="edit-traffic-type">
+                        <span class="icon">&nbsp;</span>
+                        <span>Edit</span>
+                      </div>
+                    </li>
                   </ul>
                   <div class="info">
                     <div class="title"><fmt:message key="label.guest"/></div>
@@ -541,7 +559,13 @@
                   <ul class="container">
                     <li traffic-type-id="storage"
                         title="Traffic between primary and secondary storage servers, such as VM templates and snapshots"
-                        class="traffic-type-draggable storage"></li>
+                        class="traffic-type-draggable storage">
+                      <!-- Edit buttton -->
+                      <div class="edit-traffic-type">
+                        <span class="icon">&nbsp;</span>
+                        <span>Edit</span>
+                      </div>
+                    </li>
                   </ul>
                   <div class="info">
                     <div class="title"><fmt:message key="label.storage"/></div>
@@ -563,7 +587,7 @@
                zone-wizard-form="basicPhysicalNetwork"
                zone-wizard-prefilter="addNetscalerDevice">
             <ul class="subnav">
-              <li class="conditional elb physical-network active"><fmt:message key="label.netScaler"/></li>
+              <li class="conditional netscaler physical-network active"><fmt:message key="label.netScaler"/></li>
               <li class="public-network"><fmt:message key="label.public.traffic"/></li>
               <li class="pod"><fmt:message key="label.pod"/></li>
               <li class="guest-traffic"><fmt:message key="label.guest.traffic"/></li>
@@ -580,7 +604,7 @@
           <div class="setup-public-traffic" zone-wizard-prefilter="addPublicNetwork"
                zone-wizard-step-id="configurePublicTraffic">
             <ul class="subnav">
-              <li class="conditional elb physical-network"><fmt:message key="label.netScaler"/></li>
+              <li class="conditional netscaler physical-network"><fmt:message key="label.netScaler"/></li>
               <li class="public-network active"><fmt:message key="label.public.traffic"/></li>
               <li class="pod"><fmt:message key="label.pod"/></li>
               <li class="guest-traffic"><fmt:message key="label.guest.traffic"/></li>
@@ -598,7 +622,7 @@
           <div class="add-pod" zone-wizard-form="pod"
                zone-wizard-step-id="addPod">
             <ul class="subnav">
-              <li class="conditional elb physical-network"><fmt:message key="label.netScaler"/></li>
+              <li class="conditional netscaler physical-network"><fmt:message key="label.netScaler"/></li>
               <li class="public-network"><fmt:message key="label.public.traffic"/></li>
               <li class="pod active"><fmt:message key="label.pod"/></li>
               <li class="guest-traffic"><fmt:message key="label.guest.traffic"/></li>
@@ -619,7 +643,7 @@
                zone-wizard-step-id="configureGuestTraffic"
                zone-wizard-prefilter="configureGuestTraffic">
             <ul class="subnav">
-              <li class="conditional elb physical-network"><fmt:message key="label.netScaler"/></li>
+              <li class="conditional netscaler physical-network"><fmt:message key="label.netScaler"/></li>
               <li class="public-network"><fmt:message key="label.public.traffic"/></li>
               <li class="pod"><fmt:message key="label.pod"/></li>
               <li class="guest-traffic active"><fmt:message key="label.guest.traffic"/></li>
@@ -639,7 +663,7 @@
           <div class="setup-storage-traffic" zone-wizard-prefilter="configureStorageTraffic"
                zone-wizard-step-id="configureStorageTraffic">
             <ul class="subnav">
-              <li class="conditional elb physical-network"><fmt:message key="label.netScaler"/></li>
+              <li class="conditional netscaler physical-network"><fmt:message key="label.netScaler"/></li>
               <li class="public-network"><fmt:message key="label.public.traffic"/></li>
               <li class="pod"><fmt:message key="label.pod"/><</li>
               <li class="guest-traffic"><fmt:message key="label.guest.traffic"/></li>
@@ -909,8 +933,12 @@
       <!-- System dashboard -->
       <div class="system-dashboard-view">
         <div class="toolbar">
-          <div class="button refresh">
+          <div class="button refresh" id="refresh_button">
             <span><fmt:message key="label.refresh"/></span>
+          </div>
+          <div id="update_ssl_button" class="button action main-action reduced-hide lock">
+            <span class="icon">&nbsp;</span>            
+            <span>Update SSL Certificate</span>
           </div>
         </div>
 
@@ -1622,6 +1650,12 @@
 
 <script language="javascript">
 dictionary = {
+'label.management.ips': '<fmt:message key="label.management.ips"/>',
+'label.edit.traffic.type': '<fmt:message key="label.edit.traffic.type"/>',
+'message.edit.traffic.type': '<fmt:message key="message.edit.traffic.type"/>',
+'label.label': '<fmt:message key="label.label"/>',
+'message.configure.all.traffic.types': '<fmt:message key="message.configure.all.traffic.types"/>',
+'label.max.networks': '<fmt:message key="label.max.networks"/>',
 'label.latest.events': '<fmt:message key="label.latest.events"/>',
 'state.Enabled': '<fmt:message key="state.Enabled"/>',
 'label.system.wide.capacity': '<fmt:message key="label.system.wide.capacity"/>',
@@ -2875,6 +2909,14 @@ dictionary = {
 'message.please.select.a.different.public.and.management.network.before.removing': '<fmt:message key="message.please.select.a.different.public.and.management.network.before.removing" />',
 'label.purpose': '<fmt:message key="label.purpose" />',
 'error.please.specify.physical.network.tags': '<fmt:message key="error.please.specify.physical.network.tags" />',
-'error.unable.to.reach.management.server': '<fmt:message key="error.unable.to.reach.management.server" />'
+'error.unable.to.reach.management.server': '<fmt:message key="error.unable.to.reach.management.server" />',
+'label.internal.name': '<fmt:message key="label.internal.name" />',
+'error.invalid.username.password': '<fmt:message key="error.invalid.username.password" />',
+'message.enabling.security.group.provider': '<fmt:message key="message.enabling.security.group.provider" />',
+'message.adding.Netscaler.provider': '<fmt:message key="message.adding.Netscaler.provider" />',
+'message.creating.guest.network': '<fmt:message key="message.creating.guest.network" />',
+'label.action.delete.physical.network': '<fmt:message key="label.action.delete.physical.network" />',
+'message.action.delete.physical.network': '<fmt:message key="message.action.delete.physical.network" />',
+'label.physical.network': '<fmt:message key="label.physical.network" />'
 };
 </script>

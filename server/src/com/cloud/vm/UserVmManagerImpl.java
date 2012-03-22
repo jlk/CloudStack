@@ -224,6 +224,7 @@ import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.exception.ExecutionException;
 import com.cloud.utils.fsm.NoTransitionException;
 import com.cloud.utils.net.NetUtils;
+import com.cloud.utils.AnnotationHelper;
 import com.cloud.vm.VirtualMachine.State;
 import com.cloud.vm.dao.DomainRouterDao;
 import com.cloud.vm.dao.InstanceGroupDao;
@@ -1818,7 +1819,7 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
     @Override
     @ActionEvent(eventType = EventTypes.EVENT_VM_START, eventDescription = "starting Vm", async = true)
     public UserVm startVirtualMachine(StartVMCmd cmd) throws ExecutionException, ConcurrentOperationException, ResourceUnavailableException, InsufficientCapacityException {
-        return startVirtualMachine(cmd.getId());
+        return startVirtualMachine(cmd.getId(), cmd.getHostId());
     }
 
     @Override
@@ -2807,7 +2808,7 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
     }
 
     @Override
-    public UserVm startVirtualMachine(long vmId) throws ConcurrentOperationException, ResourceUnavailableException, InsufficientCapacityException {
+    public UserVm startVirtualMachine(long vmId, Long hostId) throws ConcurrentOperationException, ResourceUnavailableException, InsufficientCapacityException {
         // Input validation
         Account caller = UserContext.current().getCaller();
         Long userId = UserContext.current().getCallerUserId();
@@ -2834,6 +2835,18 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
             throw new PermissionDeniedException("The owner of " + vm + " is disabled: " + vm.getAccountId());
         }
         
+        Host destinationHost = null;
+        if(hostId != null){
+            Account account = UserContext.current().getCaller();
+            if(!_accountService.isRootAdmin(account.getType())){
+                throw new PermissionDeniedException("Parameter hostid can only be specified by a Root Admin, permission denied");
+            }
+            destinationHost = _hostDao.findById(hostId);
+            if (destinationHost == null) {
+                throw new InvalidParameterValueException("Unable to find the host to deploy the VM, host id=" + hostId);
+            }
+        }
+        
         UserVO user = _userDao.findById(userId);
         
         //check if vm is security group enabled
@@ -2850,8 +2863,14 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
                 _securityGroupMgr.addInstanceToGroups(vmId, groupList);
             }
         }
+        
+        DataCenterDeployment plan = null;
+        if (destinationHost != null) {
+            s_logger.debug("Destination Host to deploy the VM is specified, specifying a deployment plan to deploy the VM");
+            plan = new DataCenterDeployment(vm.getDataCenterIdToDeployIn(), destinationHost.getPodId(), destinationHost.getClusterId(), destinationHost.getId(), null, null);
+        }
 
-        return _itMgr.start(vm, null, user, caller);
+        return _itMgr.start(vm, null, user, caller, plan);
     }
 
     @Override
@@ -2862,7 +2881,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
         // Verify input parameters
         UserVmVO vm = _vmDao.findById(vmId);
         if (vm == null || vm.getRemoved() != null) {
-            throw new InvalidParameterValueException("Unable to find a virtual machine with id " + vmId);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Unable to find a virtual machine with specified vmId");
+        	ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         } 
 
         if (vm.getState() == State.Destroyed || vm.getState() == State.Expunging) {
@@ -2879,7 +2900,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
         try {
             status = _itMgr.destroy(vm, userCaller, caller);
         } catch (OperationTimedoutException e) {
-            throw new CloudRuntimeException("Unable to destroy " + vm, e);
+        	CloudRuntimeException ex = new CloudRuntimeException("Unable to destroy with specified vmId", e);
+        	ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         }
 
         if (status) {
@@ -2898,7 +2921,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
 
             return _vmDao.findById(vmId);
         } else {
-            throw new CloudRuntimeException("Failed to destroy vm with id " + vmId);
+        	CloudRuntimeException ex = new CloudRuntimeException("Failed to destroy vm with specified vmId");
+        	ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         }
     }
 
@@ -3103,10 +3128,12 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
     }
 
     @Override
-    public HypervisorType getHypervisorTypeOfUserVM(long vmid) {
-        UserVmVO userVm = _vmDao.findById(vmid);
+    public HypervisorType getHypervisorTypeOfUserVM(long vmId) {
+        UserVmVO userVm = _vmDao.findById(vmId);
         if (userVm == null) {
-            throw new InvalidParameterValueException("unable to find a virtual machine with id " + vmid);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("unable to find a virtual machine with specified id");
+        	ex.addProxyObject(userVm, vmId, "vmId");            
+            throw ex;
         }
 
         return userVm.getHypervisorType();
@@ -3141,7 +3168,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
         }
 
         if (vm.getState() != State.Stopped) {
-            throw new InvalidParameterValueException("VM is not Stopped, unable to migrate the vm " + vm);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("VM is not Stopped, unable to migrate the vm having the specified id");
+        	ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         }
 
         if (vm.getType() != VirtualMachine.Type.User) {
@@ -3183,7 +3212,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("VM is not Running, unable to migrate the vm " + vm);
             }
-            throw new InvalidParameterValueException("VM is not Running, unable to migrate the vm " + vm);
+            InvalidParameterValueException ex = new InvalidParameterValueException("VM is not Running, unable to migrate the vm with specified id");
+            ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         }
         if (!vm.getHypervisorType().equals(HypervisorType.XenServer) && !vm.getHypervisorType().equals(HypervisorType.VMware) && !vm.getHypervisorType().equals(HypervisorType.KVM) && !vm.getHypervisorType().equals(HypervisorType.Ovm)) {
             if (s_logger.isDebugEnabled()) {
@@ -3253,7 +3284,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("VM is Running, unable to move the vm " + vm);
             }
-            throw new InvalidParameterValueException("VM is Running, unable to move the vm " + vm);
+            InvalidParameterValueException ex = new InvalidParameterValueException("VM is Running, unable to move the vm with specified vmId");
+            ex.addProxyObject(vm, cmd.getVmId(), "vmId");
+            throw ex;
         }
 
         Account oldAccount = _accountService.getActiveAccountById(vm.getAccountId());
@@ -3262,7 +3295,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
         }
         //don't allow to move the vm from the project
         if (oldAccount.getType() == Account.ACCOUNT_TYPE_PROJECT) {
-            throw new InvalidParameterValueException("Vm id=" + cmd.getVmId() + " belongs to the project and can't be moved");
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Specified Vm id belongs to the project and can't be moved");
+        	ex.addProxyObject(vm, cmd.getVmId(), "vmId");
+            throw ex;
         }
         Account newAccount = _accountService.getActiveAccountByName(cmd.getAccountName(), cmd.getDomainId());
         if (newAccount == null || newAccount.getType() == Account.ACCOUNT_TYPE_PROJECT) {
@@ -3449,7 +3484,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
 	                for (Long networkId : networkIdList) {
 	                    NetworkVO network = _networkDao.findById(networkId);
 	                    if (network == null) {
-	                        throw new InvalidParameterValueException("Unable to find network by id " + networkId);
+	                    	InvalidParameterValueException ex = new InvalidParameterValueException("Unable to find specified network id");
+	                    	ex.addProxyObject(network, networkId, "networkId");
+	                        throw ex;
 	                    }
 	
 	                    _networkMgr.checkNetworkPermissions(newAccount, network);
@@ -3457,7 +3494,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
 	                    //don't allow to use system networks 
 	                    NetworkOffering networkOffering = _configMgr.getNetworkOffering(network.getNetworkOfferingId());
 	                    if (networkOffering.isSystemOnly()) {
-	                        throw new InvalidParameterValueException("Network id=" + networkId + " is system only and can't be used for vm deployment");
+	                    	InvalidParameterValueException ex = new InvalidParameterValueException("Specified Network id is system only and can't be used for vm deployment");
+	                    	ex.addProxyObject(network, networkId, "networkId");
+	                        throw ex;
 	                    }
 	                    applicableNetworks.add(network);
 	                }
@@ -3524,7 +3563,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
         long vmId = cmd.getVmId();
         UserVmVO vm = _vmDao.findById(vmId);
         if (vm == null) {
-            throw new InvalidParameterValueException("Cann not find VM with ID " + vmId);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Cann not find VM with ID " + vmId);
+        	ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         }
         
         Account owner = _accountDao.findById(vm.getAccountId());
@@ -3546,14 +3587,19 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
 
         List<VolumeVO> rootVols = _volsDao.findByInstance(vmId);
         if (rootVols.isEmpty()) {
-            throw new InvalidParameterValueException("Can not find root volume for VM " + vmId);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Can not find root volume for VM " + vmId);
+        	ex.addProxyObject(vm, vmId, "vmId");
+            throw ex;
         }
 
         VolumeVO root = rootVols.get(0);
         long templateId = root.getTemplateId();
         VMTemplateVO template = _templateDao.findById(templateId);
         if (template == null) {
-            throw new InvalidParameterValueException("Cannot find template for volume " + root.getId() + " vm " + vmId);
+        	InvalidParameterValueException ex = new InvalidParameterValueException("Cannot find template for specified volumeid and vmId");
+        	ex.addProxyObject(vm, vmId, "vmId");
+        	ex.addProxyObject(root, root.getId(), "volumeId");
+            throw ex;
         }
 
         if (needRestart) {
@@ -3561,7 +3607,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
                 _itMgr.stop(vm, user, caller);
             } catch (ResourceUnavailableException e) {
                 s_logger.debug("Stop vm " + vmId + " failed", e);
-                throw new CloudRuntimeException("Stop vm " + vmId + " failed");
+                CloudRuntimeException ex = new CloudRuntimeException("Stop vm failed for specified vmId");
+                ex.addProxyObject(vm, vmId, "vmId");
+                throw ex;
             }
         }
 
@@ -3582,7 +3630,9 @@ public class UserVmManagerImpl implements UserVmManager, UserVmService, Manager 
                 _itMgr.start(vm, null, user, caller);
             } catch (Exception e) {
                 s_logger.debug("Unable to start VM " + vmId, e);
-                throw new CloudRuntimeException("Unable to start VM " + vmId + " " + e.getMessage());
+                CloudRuntimeException ex = new CloudRuntimeException("Unable to start VM with specified id" + e.getMessage());
+                ex.addProxyObject(vm, vmId, "vmId");
+                throw ex;
             }
         }
 
