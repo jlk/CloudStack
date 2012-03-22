@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2010 Cloud.com, Inc.  All rights reserved.
+ *  Copyright (C) 2012 Cloud.com, Inc.  All rights reserved.
  * 
  * This software is licensed under the GNU General Public License v3 or later.
  * 
@@ -15,21 +15,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
  */
-
 package com.cloud.network.ovs;
 
-import com.cloud.deploy.DeployDestination;
-import com.cloud.network.Network;
-import com.cloud.utils.component.Manager;
-import com.cloud.vm.VirtualMachine;
-import com.cloud.vm.VirtualMachineProfile;
+import com.cloud.agent.api.Command;
 
-public interface OvsTunnelManager extends Manager {
-	
-	boolean isOvsTunnelEnabled();
+public class OvsDestroyBridgeCommand extends Command {
 
-    public void VmCheckAndCreateTunnel(VirtualMachineProfile<? extends VirtualMachine> vm, Network nw, DeployDestination dest);
+    Long networkId;
+    Integer key;
     
-    public void CheckAndDestroyTunnel(VirtualMachine vm, Network nw);
+    public OvsDestroyBridgeCommand(Long networkId, Integer key) {
+        this.networkId = networkId;
+        this.key = key;
+    }
+    
+    public Long getNetworkId() {
+        return networkId;
+    }
+    
+    public Integer getKey() {
+    	return key;
+    }
+    
+	@Override
+	public boolean executeInSequence() {
+		return true;
+	}
 
 }

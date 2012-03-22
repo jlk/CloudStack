@@ -20,52 +20,32 @@ package com.cloud.network.ovs;
 
 import com.cloud.agent.api.Command;
 
-public class OvsCreateTunnelCommand extends Command {
+public class OvsSetupBridgeCommand extends Command {
     Integer key;
-    String remoteIp;
-    Long from;
-    Long to;
-    long networkId;
-
-    // for debug info
-    String fromIp;
+    Long hostId;
+    Long networkId;
 
     @Override
     public boolean executeInSequence() {
         return true;
     }
 
-    public OvsCreateTunnelCommand(String remoteIp, Integer key, Long from, Long to, long networkId, String fromIp) {
-        this.remoteIp = remoteIp;
+    public OvsSetupBridgeCommand(Integer key, Long hostId, Long networkId) {
         this.key = key;
-        this.from = from;
-        this.to = to;
+        this.hostId = hostId;
         this.networkId = networkId;
-        this.fromIp = fromIp;
     }
 
     public Integer getKey() {
         return key;
     }
 
-    public String getRemoteIp() {
-        return remoteIp;
+    public Long getHostId() {
+        return hostId;
     }
 
-    public Long getFrom() {
-        return from;
+    public Long getNetworkId() {
+    	return networkId;
     }
-
-    public Long getTo() {
-        return to;
-    }
-
-    public long getNetworkId() {
-        return networkId;
-    }
-
-    public String getFromIp() {
-        return fromIp;
-    }
-
+    
 }
