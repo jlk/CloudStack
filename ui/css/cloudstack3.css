@@ -3207,6 +3207,38 @@ Dialogs*/
   font-weight: bold;
 }
 
+.button.fetch-latest {
+  font-size: 10px;
+  float: right;
+  clear: none;
+  /*+text-shadow:0px 1px 0px #333E49;*/
+  -moz-text-shadow: 0px 1px 0px #333E49;
+  -webkit-text-shadow: 0px 1px 0px #333E49;
+  -o-text-shadow: 0px 1px 0px #333E49;
+  text-shadow: 0px 1px 0px #333E49;
+  padding: 3px 8px 3px 10px;
+  background: url(../images/bg-gradients.png) repeat-x 0px -411px;
+  border: 1px solid #383838;
+  /*+border-radius:6px;*/
+  -moz-border-radius: 6px;
+  -webkit-border-radius: 6px;
+  -khtml-border-radius: 6px;
+  border-radius: 6px 6px 6px 6px;
+  /*+box-shadow:0px 1px 1px #718CA5;*/
+  -moz-box-shadow: 0px 1px 1px #718CA5;
+  -webkit-box-shadow: 0px 1px 1px #718CA5;
+  -o-box-shadow: 0px 1px 1px #718CA5;
+  box-shadow: 0px 1px 1px #718CA5;
+  cursor: pointer;
+  font-weight: bold;
+
+}
+
+.button.fetch-latest:hover{
+  background-position: 0 -132px;
+  border-left: 1px solid #585D60;
+
+}
 .dashboard.admin .dashboard-container.sub .title {
   float: left;
 }
