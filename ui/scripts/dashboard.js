@@ -225,6 +225,7 @@
           zoneCapacity: function(data) {
             $.ajax({
               url: createURL('listCapacity'),
+              data: { fetchLatest: true },
               data: {
                 sortBy: 'usage',
                 page: 0,
