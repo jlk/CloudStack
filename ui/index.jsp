@@ -59,6 +59,7 @@
               <select name="language">
                 <option value="en"><fmt:message key="label.lang.english"/></option>
                 <option value="ja"><fmt:message key="label.lang.japanese"/></option>
+								<option value="zh_CN"><fmt:message key="label.lang.chinese"/></option>
               </select>
             </div>
           </div>
@@ -263,7 +264,7 @@
 
                                 <!-- Service offering -->
                                 <div class="select-desc field service-offering hide-if-unselected">
-                                  <div class="name"><fmt:message key="label.compute.offering"/></div>
+                                  <div class="name"><fmt:message key="label.network.offering"/></div>
                                   <div class="desc">
                                     <select name="new-network-networkofferingid">
                                     </select>
