@@ -1,5 +1,19 @@
 (function($) {
-  module('Detail view');
+  module('Detail view', {
+    setup: function() {
+      cloudStack.dialog.__confirm = cloudStack.dialog.confirm;
+      cloudStack.ui.notifications.__add = cloudStack.ui.notifications.add;
+      $.fn.__cloudBrowser = $.fn.cloudBrowser;
+      $.fn.__listView = $.fn.listView;
+    },
+
+    teardown: function() {
+      cloudStack.dialog.confirm = cloudStack.dialog.__confirm;
+      cloudStack.ui.notifications.add = cloudStack.ui.notifications.__add;
+      $.fn.cloudBrowser = $.fn.__cloudBrowser;
+      $.fn.listView = $.fn.__listView;
+    }
+  });
 
   test('Basic', function() {
     var detailView = {
@@ -166,7 +180,7 @@
     $detailView.detailView(detailView);
   });
 
-  test('Action', function() {    
+  test('Action', function() {
     var detailView = {
       actions: {
         actionA: {
@@ -232,7 +246,7 @@
 
       args.action(); // Perform action
     };
-    
+
     cloudStack.ui.notifications.add = function(notification, success, successArgs) {
       stop();
       equal(notification.desc, 'testActionANotification', 'Correct notification message for action A');
@@ -248,7 +262,7 @@
 
       args.action(); // Perform action
     };
-    
+
     cloudStack.ui.notifications.add = function(notification, success, successArgs) {
       start();
       equal(notification.desc, 'testActionBNotification', 'Correct notification message for action B');
@@ -259,11 +273,53 @@
     $detailView.find('.detail-actions .action.actionB a').click(); // <a> triggers action, not action's container
   });
 
+  test('Action filter', function() {
+    var detailView = {
+      actions: {
+        actionA: {
+          label: 'testActionA',
+          action: function(args) {}
+        },
+        actionB: {
+          label: 'testActionB',
+          action: function(args) {}
+        }
+      },
+      tabs: {
+        tabA: {
+          title: 'tabA',
+          fields: {
+            fieldA: { label: 'fieldA' },
+            fieldB: { label: 'fieldB' }
+          },
+          dataProvider: function(args) {
+            args.response.success({
+              actionFilter: function() {
+                return ['actionA'];
+              },
+              data: {
+                fieldA: 'fieldAContent',
+                fieldB: 'fieldBContent'
+              }
+            });
+          }
+        }
+      }
+    };
+    var $detailView = $('<div>');
+
+    $detailView.detailView(detailView).appendTo('#qunit-fixture');
+
+    equal($detailView.find('.detail-actions .action').size(), 1, 'Correct action count');
+    equal($detailView.find('.detail-actions .action.actionA').size(), 1, 'actionA present');
+    notEqual($detailView.find('.detail-actions .action.actionB').size(), 1, 'actionB not present');
+  });
+
   test('Refresh', function() {
     var dataA = ['dataLoad1A', 'dataLoad2A'];
     var dataB = ['dataLoad1B', 'dataLoad2B'];
     var index = 0;
-    
+
     var detailView = {
       tabs: {
         tabA: {
@@ -306,5 +362,119 @@
 
     stop();
     $detailView.find('.button.refresh').click();
+  });
+
+  test('View all, 1 section', function() {
+    var $browser = $('<div>').appendTo('#qunit-fixture');
+    var detailView = {
+      $browser: $browser,
+      context: {},
+      viewAll: { label: 'testListView', path: 'testListView' },
+      tabs: {
+        tabA: {
+          title: 'tabA',
+          fields: [{ fieldA: { label: 'fieldA' }}],
+          dataProvider: function(args) { args.response.success({ data: { fieldA: 'fieldAContent' } }); start(); }
+        }
+      }
+    };
+    var testListView = {};
+    var $detailView = $('<div>').appendTo('#qunit-fixture');
+
+    $('<div>').attr('cloudStack-container', true).data('cloudStack-args', {
+      sections: {
+        testListView: testListView
+      }
+    }).appendTo('#qunit-fixture');
+
+    stop();
+
+    $.fn.cloudBrowser = function(cmd, args) {};
+    $browser.cloudBrowser();
+    $detailView.detailView(detailView);
+
+    equal($detailView.find('.detail-group.actions td.view-all').size(), 1, 'Detail view has view all button');
+
+    stop();
+
+    $.fn.listView = function(args, options) {
+      start();
+      ok(true, 'List view called');
+      equal(args, testListView, 'Correct list view passed');
+      ok(args.$browser.size(), 'Browser passed in args');
+      ok($.isPlainObject(args.ref), 'Ref passed in args');
+      equal(args.id, 'testListView', 'Correct section ID');
+
+      return this;
+    };
+    
+    $.fn.cloudBrowser = function(cmd, args) {
+      start();
+      equal(cmd, 'addPanel', 'Browser add panel called');
+      stop();
+      args.complete($('<div>'));
+    };
+
+    $detailView.find('.view-all a').click();
+  });
+
+  test('View all, subsections', function() {
+    var $browser = $('<div>').appendTo('#qunit-fixture');
+    var detailView = {
+      $browser: $browser,
+      context: {},
+      viewAll: { label: 'testListView', path: 'testSection.listViewB' },
+      tabs: {
+        tabA: {
+          title: 'tabA',
+          fields: [{ fieldA: { label: 'fieldA' }}],
+          dataProvider: function(args) { args.response.success({ data: { fieldA: 'fieldAContent' } }); start(); }
+        }
+      }
+    };
+    var listViewA = {};
+    var listViewB = {};
+    var $detailView = $('<div>').appendTo('#qunit-fixture');
+
+    $('<div>').attr('cloudStack-container', true).data('cloudStack-args', {
+      sections: {
+        testSection: {
+          sections: {
+            listViewA: { listView: listViewA },
+            listViewB: { listView: listViewB }
+          }
+        }
+      }
+    }).appendTo('#qunit-fixture');
+
+    stop();
+
+    $.fn.cloudBrowser = function(cmd, args) {};
+    $browser.cloudBrowser();
+    $detailView.detailView(detailView);
+
+    equal($detailView.find('.detail-group.actions td.view-all').size(), 1, 'Detail view has view all button');
+
+    stop();
+
+    $.fn.listView = function(args, options) {
+      start();
+      ok(true, 'List view called');
+      equal(args.listView, listViewB, 'Correct list view passed');
+      ok(args.$browser.size(), 'Browser passed in args');
+      ok($.isPlainObject(args.ref), 'Ref passed in args');
+      equal(args.id, 'testSection', 'Correct section ID');
+
+      return this;
+    };
+    
+    $.fn.cloudBrowser = function(cmd, args) {
+      start();
+      equal(cmd, 'addPanel', 'Browser add panel called');
+      stop();
+      args.complete($('<div>'));
+    };
+
+    $detailView.find('.view-all a').click();
   });
 }(jQuery));
