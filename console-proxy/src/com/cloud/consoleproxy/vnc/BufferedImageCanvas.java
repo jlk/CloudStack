@@ -4,13 +4,14 @@ import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
 
-import com.cloud.console.TileInfo;
 import com.cloud.consoleproxy.util.ImageHelper;
+import com.cloud.consoleproxy.util.TileInfo;
 
 /**
  * A <code>BuffereImageCanvas</code> component represents frame buffer image on the
@@ -78,6 +79,13 @@ public class BufferedImageCanvas extends Canvas implements FrameBufferCanvas {
 	  g.drawImage(offlineImage, x, y, x + rc.width, y + rc.height, 
 	    rc.x, rc.y, rc.x + rc.width, rc.y + rc.height, null);
 	}
+  }
+  
+  @Override
+  public Image getFrameBufferScaledImage(int width, int height) {
+	  if(offlineImage != null)
+		  return offlineImage.getScaledInstance(width, height, Image.SCALE_DEFAULT);
+	  return null;
   }
   
   @Override

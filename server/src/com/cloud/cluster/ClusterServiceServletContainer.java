@@ -128,14 +128,15 @@ public class ClusterServiceServletContainer {
                     	public void run() {
                             HttpContext context = new BasicHttpContext(null);
                             try {
-                            	if(s_logger.isTraceEnabled())
-                            		s_logger.trace("dispatching cluster request from " + conn.getRemoteAddress().toString());
-                            	
-                                _httpService.handleRequest(conn, context);
-                                
-                            	if(s_logger.isTraceEnabled())
-                            		s_logger.trace("Cluster request from " + conn.getRemoteAddress().toString() + " is processed");
-                                
+                            	while(!Thread.interrupted() && conn.isOpen()) {
+	                            	if(s_logger.isTraceEnabled())
+	                            		s_logger.trace("dispatching cluster request from " + conn.getRemoteAddress().toString());
+	                            	
+	                                _httpService.handleRequest(conn, context);
+	                                
+	                            	if(s_logger.isTraceEnabled())
+	                            		s_logger.trace("Cluster request from " + conn.getRemoteAddress().toString() + " is processed");
+                            	}
                             } catch (ConnectionClosedException ex) {
                                 s_logger.error("Client closed connection", ex);
                             } catch (IOException ex) {
@@ -145,8 +146,9 @@ public class ClusterServiceServletContainer {
                             } finally {
                                 try {
                                     conn.shutdown();
-                                    conn.close();
-                                } catch (IOException ignore) {}
+                                } catch (IOException ignore) {
+                                    s_logger.error("unexpected exception", ignore);
+                                }
                             }
                     	}
                     });

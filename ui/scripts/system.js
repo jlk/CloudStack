@@ -63,7 +63,7 @@
   var zoneObjs, podObjs, clusterObjs, domainObjs, networkOfferingObjs, physicalNetworkObjs;
   var selectedClusterObj, selectedZoneObj, selectedPublicNetworkObj, selectedManagementNetworkObj, selectedPhysicalNetworkObj, selectedGuestNetworkObj; 
   var nspMap = {}; //from listNetworkServiceProviders API 
-	var networkProviderData = []; //for service providers listView (hardcoding, not from listNetworkServiceProviders API) 
+	var nspArray = []; //for service providers listView (hardcoding, not from listNetworkServiceProviders API) 
 	
   var getTrafficType = function(physicalNetwork, typeID) {
     var trafficType = {};
@@ -90,6 +90,8 @@
 		  trafficType.kvmnetworklabel = dictionary['label.network.label.display.for.blank.value'];
 		if(trafficType.vmwarenetworklabel == null || trafficType.vmwarenetworklabel == 0)
 		  trafficType.vmwarenetworklabel = dictionary['label.network.label.display.for.blank.value'];
+		if(trafficType.ovmnetworklabel == null || trafficType.ovmnetworklabel == 0)
+		  trafficType.ovmnetworklabel = dictionary['label.network.label.display.for.blank.value'];
 		
     return trafficType;
   };
@@ -102,6 +104,8 @@
 		  array1.push("&kvmnetworklabel=" + labels.kvmnetworklabel);
 		if(labels.vmwarenetworklabel != dictionary['label.network.label.display.for.blank.value'])
 		  array1.push("&vmwarenetworklabel=" + labels.vmwarenetworklabel);
+		if(labels.ovmnetworklabel != dictionary['label.network.label.display.for.blank.value'])
+		  array1.push("&ovmnetworklabel=" + labels.ovmnetworklabel);
 				
 		$.ajax({
       url: createURL('updateTrafficType' + array1.join("")),
@@ -316,7 +320,7 @@
             }
           });
 				
-					networkProviderData = [
+					nspArray = [
 						{
 							id: 'netscaler',
 							name: 'NetScaler',
@@ -330,7 +334,7 @@
 					];
 					
 					if(selectedZoneObj.networktype == "Basic") {
-					  networkProviderData.push(
+					  nspArray.push(
 						  {
                 id: 'securityGroups',
                 name: 'Security Groups',
@@ -339,14 +343,14 @@
 						);
 					}
 					else if(selectedZoneObj.networktype == "Advanced"){					  
-						networkProviderData.push(
+						nspArray.push(
 						  {
 								id: 'f5',
 								name: 'F5',
 								state: nspMap.f5 ? nspMap.f5.state : 'Disabled'
 							}						
 						);					
-					  networkProviderData.push(
+					  nspArray.push(
 						  {
 								id: 'srx',
 								name: 'SRX',
@@ -356,7 +360,7 @@
 					}
 
           args.response.success({
-            data: networkProviderData
+            data: nspArray
           })
         },
 
@@ -392,7 +396,8 @@
                   {
                     xennetworklabel: { label: 'label.xen.traffic.label', isEditable: true },
                     kvmnetworklabel: { label: 'label.kvm.traffic.label', isEditable: true },
-                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true }
+                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true },
+                    ovmnetworklabel: { label: 'label.ovm.traffic.label', isEditable: true }
                   }
                 ],
 
@@ -411,6 +416,7 @@
                       selectedPublicNetworkObj.xennetworklabel = trafficType.xennetworklabel;
                       selectedPublicNetworkObj.kvmnetworklabel = trafficType.kvmnetworklabel;
                       selectedPublicNetworkObj.vmwarenetworklabel = trafficType.vmwarenetworklabel;
+                      selectedPublicNetworkObj.ovmnetworklabel = trafficType.ovmnetworklabel;
 
                       args.response.success({data: selectedPublicNetworkObj});
                     }
@@ -563,7 +569,8 @@
                   {
                     xennetworklabel: { label: 'label.xen.traffic.label', isEditable: true },
                     kvmnetworklabel: { label: 'label.kvm.traffic.label', isEditable: true },
-                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true }
+                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true },
+                    ovmnetworklabel: { label: 'label.ovm.traffic.label', isEditable: true }
                   }
                 ],
 
@@ -580,6 +587,7 @@
                       selectedPublicNetworkObj.xennetworklabel = trafficType.xennetworklabel;
                       selectedPublicNetworkObj.kvmnetworklabel = trafficType.kvmnetworklabel;
                       selectedPublicNetworkObj.vmwarenetworklabel = trafficType.vmwarenetworklabel;
+                      selectedPublicNetworkObj.ovmnetworklabel = trafficType.ovmnetworklabel;
 
                       args.response.success({data: selectedPublicNetworkObj});
                     }
@@ -720,7 +728,8 @@
                   {
                     xennetworklabel: { label: 'label.xen.traffic.label', isEditable: true },
                     kvmnetworklabel: { label: 'label.kvm.traffic.label', isEditable: true },
-                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true }
+                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true },
+                    ovmnetworklabel: { label: 'label.ovm.traffic.label', isEditable: true }
                   }
                 ],
                 dataProvider: function(args) {                  
@@ -735,6 +744,7 @@
                       selectedManagementNetworkObj.xennetworklabel = trafficType.xennetworklabel;
                       selectedManagementNetworkObj.kvmnetworklabel = trafficType.kvmnetworklabel;
                       selectedManagementNetworkObj.vmwarenetworklabel = trafficType.vmwarenetworklabel;
+                      selectedManagementNetworkObj.ovmnetworklabel = trafficType.ovmnetworklabel;
 
                       args.response.success({ data: selectedManagementNetworkObj });                      
                     }
@@ -852,7 +862,8 @@
                   { //updateTrafficType API                   
                     xennetworklabel: { label: 'label.xen.traffic.label', isEditable: true },
                     kvmnetworklabel: { label: 'label.kvm.traffic.label', isEditable: true },
-                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true }
+                    vmwarenetworklabel: { label: 'label.vmware.traffic.label', isEditable: true },
+                    ovmnetworklabel: { label: 'label.ovm.traffic.label', isEditable: true }
                   }
                 ],
                 dataProvider: function(args) {                  
@@ -878,12 +889,12 @@
 									selectedPhysicalNetworkObj["xennetworklabel"] = trafficType.xennetworklabel;
 									selectedPhysicalNetworkObj["kvmnetworklabel"] = trafficType.kvmnetworklabel;
 									selectedPhysicalNetworkObj["vmwarenetworklabel"] = trafficType.vmwarenetworklabel;
+                  selectedPhysicalNetworkObj["ovmnetworklabel"] = trafficType.ovmnetworklabel;
 
                   args.response.success({
                     actionFilter: function() {
-                      var allowedActions = [];
-                      if(selectedZoneObj.networktype == "Advanced")
-                        allowedActions.push("edit");
+                      var allowedActions = ['edit'];
+
                       return allowedActions;
                     },
                     data: selectedPhysicalNetworkObj
@@ -2386,7 +2397,7 @@
                 ],
                 dataProvider: function(args) {								 
 									var providerObj;
-									$(networkProviderData).each(function(){										
+									$(nspArray).each(function(){										
 										if(this.id == "netscaler") {
 											providerObj = this;
 											return false; //break each loop
@@ -2620,7 +2631,7 @@
                 ],
                 dataProvider: function(args) {								  
 									var providerObj;
-									$(networkProviderData).each(function(){										
+									$(nspArray).each(function(){										
 										if(this.id == "f5") {
 											providerObj = this;
 											return false; //break each loop
@@ -2852,7 +2863,7 @@
                 ],
                 dataProvider: function(args) {								  
 									var providerObj;
-									$(networkProviderData).each(function(){										
+									$(nspArray).each(function(){										
 										if(this.id == "srx") {
 											providerObj = this;
 											return false; //break each loop
@@ -3080,12 +3091,12 @@
             }
           },
 
-          // Security groups provider list view
+          // Security groups detail view
           securityGroups: {
             id: 'securityGroup-providers',
             label: 'Security Groups',
             type: 'detailView',
-            viewAll: { label: 'Security Groups', path: 'network.securityGroups' },
+            viewAll: { label: 'label.rules', path: 'network.securityGroups' },
             tabs: {
               details: {
                 title: 'label.details',
@@ -3099,7 +3110,7 @@
                 ],
                 dataProvider: function(args) {								  
 									var providerObj;
-									$(networkProviderData).each(function(){										
+									$(nspArray).each(function(){										
 										if(this.id == "securityGroups") {
 											providerObj = this;
 											return false; //break each loop
@@ -4252,13 +4263,8 @@
           id: 'srxProviders',
           fields: {
             ipaddress: { label: 'label.ip.address' },
-            lbdevicestate: {
-              converter: function(str) {
-                // For localization
-                return str;
-              },
-              label: 'label.status'
-            }
+            fwdevicestate: { label: 'label.status' },
+            fwdevicename: { label: 'label.type' },
           },
           actions: {
             add: {

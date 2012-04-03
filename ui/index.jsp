@@ -1651,6 +1651,8 @@
 
 <script language="javascript">
 dictionary = {
+'label.ovm.traffic.label': '<fmt:message key="label.ovm.traffic.label"/>',
+'label.traffic.label': '<fmt:message key="label.traffic.label"/>',
 'label.management.ips': '<fmt:message key="label.management.ips"/>',
 'label.edit.traffic.type': '<fmt:message key="label.edit.traffic.type"/>',
 'message.edit.traffic.type': '<fmt:message key="message.edit.traffic.type"/>',
@@ -2919,6 +2921,7 @@ dictionary = {
 'label.action.delete.physical.network': '<fmt:message key="label.action.delete.physical.network" />',
 'message.action.delete.physical.network': '<fmt:message key="message.action.delete.physical.network" />',
 'label.physical.network': '<fmt:message key="label.physical.network" />',
-'label.devices': '<fmt:message key="label.devices" />'
+'label.devices': '<fmt:message key="label.devices" />',
+'label.rules': '<fmt:message key="label.rules" />'
 };
 </script>
