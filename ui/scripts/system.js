@@ -2110,7 +2110,8 @@
 													poll: pollAsyncJobResult
 												}
 											},
-																						
+											
+                      /*											
                       changeService: {
                         label: 'label.change.service.offering',                       
                         createForm: {
@@ -2165,6 +2166,7 @@
                           }
                         }
                       },
+											*/
 
                       migrate: {
                         label: 'label.action.migrate.router',                       
@@ -5539,10 +5541,8 @@
                   var array1 = [];
                   array1.push("&hosttags=" + todb(args.data.hosttags));
 
-                  if (args.data.oscategoryid != null)
+                  if (args.data.oscategoryid != null && args.data.oscategoryid != 'None')
                     array1.push("&osCategoryId=" + args.data.oscategoryid);
-                  else //OS is none
-                    array1.push("&osCategoryId=0");
 
                   $.ajax({
                     url: createURL("updateHost&id=" + args.context.hosts[0].id + array1.join("")),
@@ -5742,7 +5742,9 @@
                           async: true,
                           success: function(json) {
                             var oscategoryObjs = json.listoscategoriesresponse.oscategory;
-                            var items = [];
+                            var items = [
+                              { id: null, description: _l('label.none') }
+                            ];
                             $(oscategoryObjs).each(function() {
                               items.push({id: this.id, description: this.name});
                             });
@@ -7431,15 +7433,15 @@
     if (jsonObj.state == 'Running') {
       allowedActions.push("stop");
       allowedActions.push("restart");
-      allowedActions.push("changeService");
+      //allowedActions.push("changeService");
       allowedActions.push("viewConsole");
       if (isAdmin())
         allowedActions.push("migrate");
     }
     else if (jsonObj.state == 'Stopped') {
       allowedActions.push("start");
-	  allowedActions.push("remove");
-      allowedActions.push("changeService");
+	    allowedActions.push("remove");
+      //allowedActions.push("changeService");
     }
     return allowedActions;
   }
