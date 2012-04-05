@@ -496,8 +496,11 @@
               <li class="guest-traffic"><fmt:message key="label.guest.traffic"/></li>
               <li class="conditional storage-traffic"><fmt:message key="label.storage.traffic"/></li>
             </ul>
-            <div class="info-desc">
+            <div class="info-desc conditional advanced">
               <fmt:message key="message.setup.physical.network.during.zone.creation"/>
+            </div>
+            <div class="info-desc conditional basic">
+              <fmt:message key="message.setup.physical.network.during.zone.creation.basic"/>
             </div>
             <div class="button add new-physical-network"><span class="icon">&nbsp;</span><span><fmt:message key="label.add.physical.network"/></span></div>
 
@@ -795,7 +798,8 @@
           </li>
           <li class="firewall">
             <div class="name"><span><fmt:message key="label.firewall"/></span></div>
-            <div class="view-details" net-target="staticNAT"><fmt:message key="label.view.all"/></div>
+            <!--<div class="view-details" net-target="staticNAT"><fmt:message key="label.view.all"/></div>-->
+						<div class="view-details" net-target="firewall"><fmt:message key="label.view.all"/>
           </li>
         </ul>
       </div>
@@ -1651,7 +1655,7 @@
 
 <script language="javascript">
 dictionary = {
-'label.ovm.traffic.label': '<fmt:message key="label.ovm.traffic.label"/>',
+'message.setup.physical.network.during.zone.creation.basic': '<fmt:message key="message.setup.physical.network.during.zone.creation.basic"/>',
 'label.traffic.label': '<fmt:message key="label.traffic.label"/>',
 'label.management.ips': '<fmt:message key="label.management.ips"/>',
 'label.edit.traffic.type': '<fmt:message key="label.edit.traffic.type"/>',
@@ -2922,6 +2926,7 @@ dictionary = {
 'message.action.delete.physical.network': '<fmt:message key="message.action.delete.physical.network" />',
 'label.physical.network': '<fmt:message key="label.physical.network" />',
 'label.devices': '<fmt:message key="label.devices" />',
-'label.rules': '<fmt:message key="label.rules" />'
+'label.rules': '<fmt:message key="label.rules" />',
+'label.vm.state': '<fmt:message key="label.vm.state" />'
 };
 </script>
