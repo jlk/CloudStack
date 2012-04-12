@@ -175,10 +175,10 @@
 
     //Fetch Latest action
     $dashboard.find('.fetch-latest').click(function() {
-       var $browser = $('#browser .container');
+      var $browser = $('#browser .container');
 
-       if ($(this).hasClass('fetch-latest')) $('#navigation li.dashboard').click();
-       });
+      if ($(this).hasClass('fetch-latest')) $('#navigation li.dashboard').click();
+    });
 
     getData();
 
