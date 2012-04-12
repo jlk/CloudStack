@@ -1,0 +1,4 @@
+/etc/cloud/cli/commands.xml
+/usr/bin/cloud-grab-dependent-library-versions
+/usr/bin/cloud-tool
+/usr/bin/cloudvoladm

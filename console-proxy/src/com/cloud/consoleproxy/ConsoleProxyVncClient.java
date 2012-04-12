@@ -13,6 +13,8 @@
 package com.cloud.consoleproxy;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 
 import org.apache.log4j.Logger;
@@ -52,13 +54,11 @@ public class ConsoleProxyVncClient extends ConsoleProxyClientBase {
 	}
 
 	@Override
-	public void initClient(final String clientHostAddress, final int clientHostPort, 
-			final String clientHostPassword, final String clientTag, final String ticket) {
-		this.host = clientHostAddress;
-		this.port = clientHostPort;
-		this.passwordParam = clientHostPassword;
-		this.tag = clientTag;
-		this.ticket = ticket;
+	public void initClient(ConsoleProxyClientParam param) {
+		setClientParam(param);
+		
+		final String tunnelUrl = param.getClientTunnelUrl();
+		final String tunnelSession = param.getClientTunnelSession();
 		
 		client = new VncClient(this);
 		worker = new Thread(new Runnable() {
@@ -66,7 +66,22 @@ public class ConsoleProxyVncClient extends ConsoleProxyClientBase {
 				long startTick = System.currentTimeMillis();
 				while(System.currentTimeMillis() - startTick < 7000) {
 					try {
-						client.connectTo(clientHostAddress, clientHostPort, clientHostPassword);
+						if(tunnelUrl != null && !tunnelUrl.isEmpty() && tunnelSession != null && !tunnelSession.isEmpty()) {
+							try {
+								URI uri = new URI(tunnelUrl);
+								s_logger.info("Connect to VNC server via tunnel. url: " + tunnelUrl + ", session: " + tunnelSession);
+								client.connectTo(
+									uri.getHost(), uri.getPort(), 
+									uri.getPath() + "?" + uri.getQuery(), 
+									tunnelSession, "https".equalsIgnoreCase(uri.getScheme()),
+									getClientHostPassword());
+							} catch (URISyntaxException e) {
+								s_logger.warn("Invalid tunnel URL " + tunnelUrl);
+							}
+						} else {
+							s_logger.info("Connect to VNC server directly. host: " + getClientHostAddress() + ", port: " + getClientHostPort());
+							client.connectTo(getClientHostAddress(), getClientHostPort(), getClientHostPassword());
+						}
 					} catch (UnknownHostException e) {
 						s_logger.error("Unexpected exception: ", e);
 					} catch (IOException e) {

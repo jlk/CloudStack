@@ -1095,7 +1095,7 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
 
             List<HostVO> hosts = listAllUpAndEnabledHosts(Host.Type.Routing, host.getClusterId(), host.getPodId(), host.getDataCenterId());
             for (final VMInstanceVO vm : vms) {
-                if (hosts == null || hosts.size() <= 1 || !answer.getMigrate()) {
+                if (hosts == null || hosts.isEmpty() || !answer.getMigrate()) {
                     // for the last host in this cluster, stop all the VMs
                     _haMgr.scheduleStop(vm, hostId, WorkType.ForceStop);
                 } else {
@@ -1997,6 +1997,12 @@ public class ResourceManagerImpl implements ResourceManager, ResourceService, Ma
 		sc.addAnd(sc.getEntity().getStatus(), Op.EQ, Status.Up);
 		sc.addAnd(sc.getEntity().getResourceState(), Op.EQ, ResourceState.Enabled);
 		return sc.list();
+    }
+	
+	@Override
+    public List<HostVO> listAllUpAndEnabledNonHAHosts(Type type, Long clusterId, Long podId, long dcId) {
+	    String haTag = _haMgr.getHaTag();
+        return _hostDao.listAllUpAndEnabledNonHAHosts(type, clusterId, podId, dcId, haTag);
     }
 	
 	@Override 

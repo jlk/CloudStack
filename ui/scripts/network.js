@@ -70,7 +70,7 @@
       if (item.issourcenat){
         disallowedActions.push('enableStaticNAT');
         disallowedActions.push('disableStaticNAT');
-        disallowedActions.push('destroy');
+        disallowedActions.push('remove');
       }
 
       allowedActions = $.grep(allowedActions, function(item) {
@@ -88,7 +88,7 @@
       if (isSecurityGroupOwner &&
           args.context.item.state != 'Destroyed' &&
           args.context.item.name != 'default') {
-        allowedActions.push('destroy');
+        allowedActions.push('remove');
       }
 
       return allowedActions;
@@ -2587,7 +2587,7 @@
                     'cidr': { edit: true, label: 'CIDR', isHidden: true },
                     'accountname': {
                       edit: true,
-                      label: _l('label.account') + ', ' + _l('label.security.group'),
+                      label: 'label.account.and.security.group',
                       isHidden: true,
                       range: ['accountname', 'securitygroup']
                     },
@@ -2673,6 +2673,9 @@
                                 poll: pollAsyncJobResult
                               }
                             });
+                          },
+                          error: function(json) {
+                            args.response.error(parseXMLHttpResponse(json));
                           }
                         });
                       }
@@ -2764,7 +2767,7 @@
                     'cidr': { edit: true, label: 'CIDR', isHidden: true },
                     'accountname': {
                       edit: true,
-                      label: _l('label.account') + ', ' + _l('label.security.group'),
+                      label: 'label.account.and.security.group',
                       isHidden: true,
                       range: ['accountname', 'securitygroup']
                     },
@@ -2888,7 +2891,7 @@
             },
 
             actions: {
-              destroy: {
+              remove: {
                 label: 'label.action.delete.security.group',
                 messages: {
                   confirm: function(args) {
@@ -2908,6 +2911,9 @@
                     async: true,
                     success: function(data) {
                       args.response.success();
+                    },
+                    error: function(json) {
+                      args.response.error(parseXMLHttpResponse(json));
                     }
                   });
                 },

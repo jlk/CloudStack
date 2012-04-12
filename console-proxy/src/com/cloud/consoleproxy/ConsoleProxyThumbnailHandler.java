@@ -107,6 +107,9 @@ public class ConsoleProxyThumbnailHandler implements HttpHandler {
 		String sid = queryMap.get("sid");
 		String tag = queryMap.get("tag");
 		String ticket = queryMap.get("ticket");
+		String console_url = queryMap.get("consoleurl");
+		String console_host_session = queryMap.get("sessionref");
+
 		if(tag == null)
 			tag = "";
 		
@@ -121,7 +124,16 @@ public class ConsoleProxyThumbnailHandler implements HttpHandler {
 			throw new IllegalArgumentException(e);
 		}
 
-		ConsoleProxyClient viewer = ConsoleProxy.getVncViewer(host, port, sid, tag, ticket);
+		ConsoleProxyClientParam param = new ConsoleProxyClientParam();
+		param.setClientHostAddress(host);
+		param.setClientHostPort(port);
+		param.setClientHostPassword(sid);
+		param.setClientTag(tag);
+		param.setTicket(ticket);
+		param.setClientTunnelUrl(console_url);
+		param.setClientTunnelSession(console_host_session);
+		
+		ConsoleProxyClient viewer = ConsoleProxy.getVncViewer(param);
 		
 		if (!viewer.isHostConnected()) {
 			// use generated image instead of static
