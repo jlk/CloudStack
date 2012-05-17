@@ -290,6 +290,7 @@ def default_network_rules(vm_name, vm_id, vm_ip, vm_mac, vif, brname):
             execute("iptables -A " + vmchain_default + " -m physdev --physdev-is-bridged --physdev-in " + vif  + " --source " +  vm_ip +  " -j " + vmchain_egress)
         execute("iptables -A " + vmchain_default + " -m physdev --physdev-is-bridged --physdev-out " + vif  + " -j " +  vmchain)
         execute("iptables -A " + vmchain + " -j DROP")
+        execute("iptables -A " + vmchain + " -j DROP")
     except:
         logging.debug("Failed to program default rules for vm " + vm_name)
         return 'false'
@@ -639,8 +640,8 @@ def add_network_rules(vm_name, vm_id, vm_ip, signature, seqno, vmMac, rules, vif
                 range = start + "/" + end
                 if start == "-1":
                     range = "any"
-                    for ip in ips:
-                        execute("iptables -I " + vmchain + " -p icmp --icmp-type " + range + " " + direction + "  " + ip + " -j "+ action)
+                for ip in ips:
+                    execute("iptables -I " + vmchain + " -p icmp --icmp-type " + range + " " + direction + "  " + ip + " -j "+ action)
         
         if allow_any and protocol != 'all':
             if protocol != 'icmp':
@@ -649,7 +650,7 @@ def add_network_rules(vm_name, vm_id, vm_ip, signature, seqno, vmMac, rules, vif
                 range = start + "/" + end
                 if start == "-1":
                     range = "any"
-                    execute("iptables -I " + vmchain + " -p icmp --icmp-type " + range + " -j "+action)
+                execute("iptables -I " + vmchain + " -p icmp --icmp-type " + range + " -j "+action)
  
     egress_vmchain = egress_chain_name(vm_name)
     if egressrule == 0 :
